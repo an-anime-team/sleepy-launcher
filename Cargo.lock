@@ -81,31 +81,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "anime-game-launcher"
-version = "3.10.1"
-dependencies = [
- "anime-launcher-sdk",
- "anyhow",
- "cached",
- "enum-ordinalize",
- "fluent-templates",
- "glib-build-tools",
- "gtk4",
- "human-panic",
- "lazy_static",
- "libadwaita",
- "md-5",
- "open",
- "relm4",
- "rfd",
- "serde_json",
- "tracing",
- "tracing-subscriber",
- "unic-langid",
- "whatadistro",
-]
-
-[[package]]
 name = "anime-launcher-sdk"
 version = "1.15.4"
 source = "git+https://github.com/an-anime-team/anime-launcher-sdk?tag=1.15.4#eebd048fb05034959fd06e499fcdfaebbcce1d6c"
@@ -2517,6 +2492,31 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8f92a496fb766b417c996b9c5e57daf2f7ad3b0bebe1ccfca4856390e3d3bb67"
 dependencies = [
  "autocfg",
+]
+
+[[package]]
+name = "sleepy-launcher"
+version = "1.0.0"
+dependencies = [
+ "anime-launcher-sdk",
+ "anyhow",
+ "cached",
+ "enum-ordinalize",
+ "fluent-templates",
+ "glib-build-tools",
+ "gtk4",
+ "human-panic",
+ "lazy_static",
+ "libadwaita",
+ "md-5",
+ "open",
+ "relm4",
+ "rfd",
+ "serde_json",
+ "tracing",
+ "tracing-subscriber",
+ "unic-langid",
+ "whatadistro",
 ]
 
 [[package]]

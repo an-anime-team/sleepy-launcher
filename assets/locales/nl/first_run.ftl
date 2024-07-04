@@ -1,7 +1,7 @@
 welcome = Welkon
 
 welcome-page-message =
-    Hallo! Welkom bij de An Anime Game Launcher
+    Hallo! Welkom bij de Sleepy Launcher
 
     We moeten een aantal dingen voorbereiden en standaardcomponenten downloaden voordat je het spel kunt spelen
 

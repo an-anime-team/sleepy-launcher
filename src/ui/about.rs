@@ -33,11 +33,11 @@ impl SimpleComponent for AboutDialog {
 
     view! {
         dialog = adw::AboutWindow {
-            set_application_name: "An Anime Game Launcher",
+            set_application_name: "Sleepy Launcher",
             set_application_icon: APP_ID,
 
-            set_website: "https://github.com/an-anime-team/an-anime-game-launcher",
-            set_issue_url: "https://github.com/an-anime-team/an-anime-game-launcher/issues",
+            set_website: "https://github.com/an-anime-team/sleepy-launcher",
+            set_issue_url: "https://github.com/an-anime-team/sleepy-launcher/issues",
 
             set_license_type: gtk::License::Gpl30,
             set_version: &APP_VERSION,
@@ -54,10 +54,6 @@ impl SimpleComponent for AboutDialog {
                 "Soham Nandy https://github.com/natimerry",
                 "@mkrsym1 https://github.com/mkrsym1"
             ]),
-
-            set_artists: &[
-                "@nightany https://pinterest.com/pin/356206651788051017"
-            ],
 
             set_translator_credits: &[
                 "Русский, English — Nikita Podvirnyi https://github.com/krypt0nn",
@@ -95,17 +91,7 @@ impl SimpleComponent for AboutDialog {
 
             set_release_notes_version: &APP_VERSION,
             set_release_notes: &[
-                "<p>Added</p>",
-
-                "<ul>",
-                    "<li>Handle dwebp re-coding errors</li>",
-                "</ul>",
-
-                "<p>Fixed</p>",
-
-                "<ul>",
-                    "<li>Added workaround for wrong pre-downloads API format</li>",
-                "</ul>"
+                "<p>Initial release</p>"
             ].join("\n"),
 
             set_modal: true,

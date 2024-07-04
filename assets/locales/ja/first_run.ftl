@@ -1,7 +1,7 @@
 welcome = ようこそ
 
 welcome-page-message =
-    やぁ！An Anime Game Launcherへようこそ！
+    やぁ！Sleepy Launcherへようこそ！
 
     ゲームを実行する前に、いくつかのコンポーネントをダウンロードする必要があります！
 

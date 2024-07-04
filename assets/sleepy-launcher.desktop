@@ -1,8 +1,8 @@
 [Desktop Entry]
-Name=An Anime Game Launcher
+Name=Sleepy Launcher
 Icon=icon
 Exec=AppRun
 Type=Application
 Categories=Game
 Terminal=false
-Keywords=aagl
+Keywords=sl

@@ -26,8 +26,8 @@ pub mod ui;
 use ui::main::*;
 use ui::first_run::main::*;
 
-pub const APP_ID: &str = "moe.launcher.an-anime-game-launcher";
-pub const APP_RESOURCE_PATH: &str = "/moe/launcher/an-anime-game-launcher";
+pub const APP_ID: &str = "moe.launcher.sleepy-launcher";
+pub const APP_RESOURCE_PATH: &str = "/moe/launcher/sleepy-launcher";
 
 pub const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
 pub const APP_DEBUG: bool = cfg!(debug_assertions);
@@ -202,8 +202,8 @@ fn main() -> anyhow::Result<()> {
         .add_resource_path(&format!("{APP_RESOURCE_PATH}/icons"));
 
     // Set application's title
-    gtk::glib::set_application_name("An Anime Game Launcher");
-    gtk::glib::set_program_name(Some("An Anime Game Launcher"));
+    gtk::glib::set_application_name("Sleepy Launcher");
+    gtk::glib::set_program_name(Some("Sleepy Launcher"));
 
     // Set UI language
     let lang = CONFIG.launcher.language.parse().expect("Wrong language format used in config");

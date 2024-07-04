@@ -1,7 +1,7 @@
 welcome = Üdvözöljük
 
 welcome-page-message =
-    Hali! Üdvözlünk az An Anime Game Launcher-ben!
+    Hali! Üdvözlünk az Sleepy Launcher-ben!
 
     Elő kell készítenünk pár dolgot és letölteni pár alapértelmezett komponenst mielőtt futtathatod a játékot
 

@@ -1,7 +1,7 @@
 welcome = Witaj
 
 welcome-page-message =
-    Cześć! Witaj w An Anime Game Launcher
+    Cześć! Witaj w Sleepy Launcher
 
     Musimy przygotować pewne rzeczy i pobrać domyślne komponenty, zanim będziesz mógł uruchomić grę
 

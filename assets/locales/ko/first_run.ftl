@@ -1,7 +1,7 @@
 welcome = 환영합니다
 
 welcome-page-message =
-    안녕하세요! An Anime Game Launcher에 오신 것을 환영합니다
+    안녕하세요! Sleepy Launcher에 오신 것을 환영합니다
 
     게임을 실행하기 전에 몇 가지 사항을 준비하고 기본 구성 요소를 다운로드해야 합니다
 

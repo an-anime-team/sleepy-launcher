@@ -1,7 +1,7 @@
 welcome = Välkommen
 
 welcome-page-message =
-    Hej där! Välkommen till An Anime Game Launcher
+    Hej där! Välkommen till Sleepy Launcher
 
     Vi måste förbereda vissa saker och ladda ner standardkomponenter innan du kan köra spelet
 

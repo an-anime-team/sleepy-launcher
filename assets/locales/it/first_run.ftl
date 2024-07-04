@@ -1,7 +1,7 @@
 welcome = Benvenuto/a
 
 welcome-page-message =
-    Ciao! Benvenuto/a in An Anime Game Launcher
+    Ciao! Benvenuto/a in Sleepy Launcher
 
     Dobbiamo preparare alcune cose e scaricare i componenti di default prima che tu possa eseguire il gioco
 
