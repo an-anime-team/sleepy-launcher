@@ -3,11 +3,11 @@ use relm4::prelude::*;
 use gtk::prelude::*;
 use adw::prelude::*;
 
-use anime_launcher_sdk::anime_game_core::genshin::prelude::*;
+use anime_launcher_sdk::anime_game_core::zzz::prelude::*;
 
 use anime_launcher_sdk::config::ConfigExt;
-use anime_launcher_sdk::genshin::config::Config;
-use anime_launcher_sdk::genshin::config::schema::launcher::LauncherStyle;
+use anime_launcher_sdk::zzz::config::Config;
+use anime_launcher_sdk::zzz::config::schema::launcher::LauncherStyle;
 
 use crate::tr;
 

@@ -1,7 +1,7 @@
 use relm4::prelude::*;
 use gtk::prelude::*;
 
-use anime_launcher_sdk::genshin::config::schema::prelude::LauncherBehavior;
+use anime_launcher_sdk::zzz::config::schema::prelude::LauncherBehavior;
 
 use crate::*;
 
@@ -22,7 +22,7 @@ pub fn launch(sender: ComponentSender<App>) {
     }
 
     std::thread::spawn(move || {
-        if let Err(err) = anime_launcher_sdk::genshin::game::run() {
+        if let Err(err) = anime_launcher_sdk::zzz::game::run() {
             tracing::error!("Failed to launch game: {err}");
 
             sender.input(AppMsg::Toast {

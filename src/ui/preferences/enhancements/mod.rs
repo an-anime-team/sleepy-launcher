@@ -9,7 +9,7 @@ use relm4::factory::{
 use adw::prelude::*;
 
 use anime_launcher_sdk::config::ConfigExt;
-use anime_launcher_sdk::genshin::config::Config;
+use anime_launcher_sdk::zzz::config::Config;
 use anime_launcher_sdk::config::schema_blanks::prelude::*;
 
 use anime_launcher_sdk::anime_game_core::installer::downloader::Downloader;
@@ -544,87 +544,6 @@ impl SimpleAsyncComponent for EnhancementsApp {
                         }
                     }
                 }
-            },
-
-            add = &adw::PreferencesGroup {
-                set_title: &tr!("fps-unlocker"),
-
-                adw::ComboRow {
-                    set_title: &tr!("enabled"),
-                    set_subtitle: &tr!("fps-unlocker-description"),
-
-                    #[wrap(Some)]
-                    set_model = &gtk::StringList::new(&[
-                        "90",
-                        "120",
-                        "144",
-                        "165",
-                        "180",
-                        "200",
-                        "240",
-                        &tr!("custom")
-                    ]),
-
-                    set_selected: match Fps::from_num(CONFIG.game.enhancements.fps_unlocker.config.fps) {
-                        Fps::Ninety            => 0,
-                        Fps::HundredTwenty     => 1,
-                        Fps::HundredFourtyFour => 2,
-                        Fps::HundredSixtyFive  => 3,
-                        Fps::HundredEighty     => 4,
-                        Fps::TwoHundred        => 5,
-                        Fps::TwoHundredFourty  => 6,
-
-                        Fps::Custom(_) => 7
-                    },
-
-                    connect_selected_notify => |row| {
-                        if is_ready() && row.selected() < Fps::list().len() as u32 - 1 {
-                            if let Ok(mut config) = Config::get() {
-                                config.game.enhancements.fps_unlocker.config.fps = Fps::list()[row.selected() as usize].to_num();
-
-                                Config::update(config);
-                            }
-                        }
-                    },
-
-                    add_suffix = &gtk::Switch {
-                        set_valign: gtk::Align::Center,
-
-                        set_active: CONFIG.game.enhancements.fps_unlocker.enabled,
-
-                        connect_state_notify => |switch| {
-                            if is_ready() {
-                                if let Ok(mut config) = Config::get() {
-                                    config.game.enhancements.fps_unlocker.enabled = switch.is_active();
-
-                                    Config::update(config);
-                                }
-                            }
-                        }
-                    }
-                },
-
-                adw::ActionRow {
-                    set_title: &tr!("fps-unlocker-interval"),
-                    set_subtitle: &tr!("fps-unlocker-interval-description"),
-
-                    add_suffix = &gtk::SpinButton {
-                        set_valign: gtk::Align::Center,
-                        set_adjustment: &gtk::Adjustment::new(1.0, 1000.0, 60000.0, 1000.0, 1.0, 0.0),
-
-                        set_value: CONFIG.game.enhancements.fps_unlocker.config.interval as f64,
-
-                        connect_changed => |row| {
-                            if is_ready() {
-                                if let Ok(mut config) = Config::get() {
-                                    config.game.enhancements.fps_unlocker.config.interval = row.value() as u64;
-
-                                    Config::update(config);
-                                }
-                            }
-                        }
-                    }
-                },
             }
         },
 

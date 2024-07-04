@@ -4,16 +4,16 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use relm4::prelude::*;
 
 use anime_launcher_sdk::config::ConfigExt;
-use anime_launcher_sdk::genshin::config::{Config, Schema};
+use anime_launcher_sdk::zzz::config::{Config, Schema};
 
-use anime_launcher_sdk::genshin::states::LauncherState;
-use anime_launcher_sdk::genshin::consts::*;
+use anime_launcher_sdk::zzz::states::LauncherState;
+use anime_launcher_sdk::zzz::consts::*;
 
 use anime_launcher_sdk::anime_game_core::prelude::*;
-use anime_launcher_sdk::anime_game_core::genshin::prelude::*;
+use anime_launcher_sdk::anime_game_core::zzz::prelude::*;
 
 use anime_launcher_sdk::sessions::SessionsExt;
-use anime_launcher_sdk::genshin::sessions::Sessions;
+use anime_launcher_sdk::zzz::sessions::Sessions;
 
 use tracing_subscriber::prelude::*;
 use tracing_subscriber::filter::*;
@@ -233,13 +233,13 @@ fn main() -> anyhow::Result<()> {
 
             match state {
                 LauncherState::Launch => {
-                    anime_launcher_sdk::genshin::game::run().expect("Failed to run the game");
+                    anime_launcher_sdk::zzz::game::run().expect("Failed to run the game");
 
                     return Ok(());
                 }
 
                 LauncherState::PredownloadAvailable { .. } if just_run_game => {
-                    anime_launcher_sdk::genshin::game::run().expect("Failed to run the game");
+                    anime_launcher_sdk::zzz::game::run().expect("Failed to run the game");
 
                     return Ok(());
                 }

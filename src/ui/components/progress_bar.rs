@@ -2,7 +2,7 @@ use relm4::prelude::*;
 use adw::prelude::*;
 
 use anime_launcher_sdk::anime_game_core::prelude::*;
-use anime_launcher_sdk::anime_game_core::genshin::prelude::*;
+use anime_launcher_sdk::anime_game_core::zzz::prelude::*;
 
 use crate::*;
 

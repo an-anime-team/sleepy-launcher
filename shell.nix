@@ -25,6 +25,7 @@ in pkgs.mkShell {
         pkg-config
 
         xdelta
+        p7zip
         libwebp
     ];
 

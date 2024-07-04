@@ -4,7 +4,7 @@ use relm4::factory::*;
 use adw::prelude::*;
 
 use anime_launcher_sdk::sessions::SessionsExt;
-use anime_launcher_sdk::genshin::sessions::Sessions;
+use anime_launcher_sdk::zzz::sessions::Sessions;
 
 use crate::*;
 

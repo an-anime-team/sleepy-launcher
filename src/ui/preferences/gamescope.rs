@@ -2,7 +2,7 @@ use relm4::prelude::*;
 use adw::prelude::*;
 
 use anime_launcher_sdk::config::ConfigExt;
-use anime_launcher_sdk::genshin::config::Config;
+use anime_launcher_sdk::zzz::config::Config;
 
 use anime_launcher_sdk::config::schema_blanks::prelude::*;
 

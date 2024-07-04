@@ -20,12 +20,12 @@ mod launch;
 use anime_launcher_sdk::components::loader::ComponentsLoader;
 
 use anime_launcher_sdk::config::ConfigExt;
-use anime_launcher_sdk::genshin::config::Config;
+use anime_launcher_sdk::zzz::config::Config;
 
-use anime_launcher_sdk::genshin::config::schema::launcher::LauncherStyle;
+use anime_launcher_sdk::zzz::config::schema::launcher::LauncherStyle;
 
-use anime_launcher_sdk::genshin::states::*;
-use anime_launcher_sdk::genshin::consts::*;
+use anime_launcher_sdk::zzz::states::*;
+use anime_launcher_sdk::zzz::consts::*;
 
 use crate::*;
 use crate::ui::components::*;
@@ -39,7 +39,6 @@ relm4::new_stateless_action!(LauncherFolder, WindowActionGroup, "launcher_folder
 relm4::new_stateless_action!(GameFolder, WindowActionGroup, "game_folder");
 relm4::new_stateless_action!(ConfigFile, WindowActionGroup, "config_file");
 relm4::new_stateless_action!(DebugFile, WindowActionGroup, "debug_file");
-relm4::new_stateless_action!(WishUrl, WindowActionGroup, "wish_url");
 
 relm4::new_stateless_action!(About, WindowActionGroup, "about");
 
@@ -116,10 +115,6 @@ impl SimpleComponent for App {
                 &tr!("game-folder") => GameFolder,
                 &tr!("config-file") => ConfigFile,
                 &tr!("debug-file") => DebugFile,
-            },
-
-            section! {
-                &tr!("wish-url") => WishUrl
             },
 
             section! {
@@ -306,12 +301,8 @@ impl SimpleComponent for App {
                                             },
 
                                             "size" = match model.state.as_ref() {
-                                                Some(LauncherState::PredownloadAvailable { game, voices }) => {
-                                                    let mut size = game.downloaded_size().unwrap_or(0);
-
-                                                    for voice in voices {
-                                                        size += voice.downloaded_size().unwrap_or(0);
-                                                    }
+                                                Some(LauncherState::PredownloadAvailable { game }) => {
+                                                    let size = game.downloaded_size().unwrap_or(0);
 
                                                     prettify_bytes(size)
                                                 }
@@ -325,25 +316,13 @@ impl SimpleComponent for App {
 
                                         #[watch]
                                         set_sensitive: match model.state.as_ref() {
-                                            Some(LauncherState::PredownloadAvailable { game, voices }) => {
+                                            Some(LauncherState::PredownloadAvailable { game }) => {
                                                 let config = Config::get().unwrap();
                                                 let temp = config.launcher.temp.unwrap_or_else(std::env::temp_dir);
 
-                                                let mut downloaded = temp.join(game.file_name().unwrap()).metadata()
+                                                let downloaded = temp.join(game.file_name().unwrap()).metadata()
                                                     .map(|metadata| Some(metadata.len()) == game.downloaded_size())
                                                     .unwrap_or(false);
-
-                                                if downloaded {
-                                                    for voice in voices {
-                                                        downloaded = !temp.join(voice.file_name().unwrap()).metadata()
-                                                            .map(|metadata| Some(metadata.len()) == voice.downloaded_size())
-                                                            .unwrap_or(false);
-
-                                                        if downloaded {
-                                                            break;
-                                                        }
-                                                    }
-                                                }
 
                                                 !downloaded
                                             }
@@ -353,25 +332,13 @@ impl SimpleComponent for App {
 
                                         #[watch]
                                         set_css_classes: match model.state.as_ref() {
-                                            Some(LauncherState::PredownloadAvailable { game, voices }) => {
+                                            Some(LauncherState::PredownloadAvailable { game }) => {
                                                 let config = Config::get().unwrap();
                                                 let temp = config.launcher.temp.unwrap_or_else(std::env::temp_dir);
 
-                                                let mut downloaded = temp.join(game.file_name().unwrap()).metadata()
+                                                let downloaded = temp.join(game.file_name().unwrap()).metadata()
                                                     .map(|metadata| Some(metadata.len()) == game.downloaded_size())
                                                     .unwrap_or(false);
-
-                                                if downloaded {
-                                                    for voice in voices {
-                                                        downloaded = !temp.join(voice.file_name().unwrap()).metadata()
-                                                            .map(|metadata| Some(metadata.len()) == voice.downloaded_size())
-                                                            .unwrap_or(false);
-
-                                                        if downloaded {
-                                                            break;
-                                                        }
-                                                    }
-                                                }
 
                                                 if downloaded {
                                                     &["success", "circular"]
@@ -525,7 +492,7 @@ impl SimpleComponent for App {
                                             let result = std::process::Command::new("pkill")
                                                 .arg("-f") // full text search
                                                 .arg("-i") // case-insensitive
-                                                .arg("GenshinImpact|YuanShen|fpsunlock\\.exe")
+                                                .arg("ZenlessZoneZero")
                                                 .spawn();
 
                                             if let Err(err) = result {
@@ -727,84 +694,6 @@ impl SimpleComponent for App {
             }
         })));
 
-        group.add_action::<WishUrl>(RelmAction::new_stateless(clone!(@strong sender => move |_| {
-            std::thread::spawn(clone!(@strong sender => move || {
-                let config = Config::get().unwrap_or_else(|_| CONFIG.clone());
-
-                let web_cache = config.game.path.for_edition(config.launcher.edition)
-                    .join(config.launcher.edition.data_folder())
-                    .join("webCaches");
-
-                // Find newest cache folder
-                let mut web_cache_id = None;
-
-                if let Ok(entries) = web_cache.read_dir() {
-                    for entry in entries.flatten() {
-                        if entry.path().is_dir() &&
-                           entry.file_name().to_string_lossy().trim_matches(|c| "0123456789.".contains(c)).is_empty() &&
-                           Some(entry.file_name()) > web_cache_id
-                        {
-                            web_cache_id = Some(entry.file_name());
-                        }
-                    }
-                }
-
-                if let Some(web_cache_id) = web_cache_id {
-                    let web_cache = web_cache
-                        .join(web_cache_id)
-                        .join("Cache/Cache_Data/data_2");
-
-                    match std::fs::read(web_cache) {
-                        Ok(web_cache) => {
-                            let web_cache = String::from_utf8_lossy(&web_cache);
-
-                            // https://webstatic-sea.[ho-yo-ver-se].com/[ge-nsh-in]/event/e20190909gacha-v2/index.html?......
-                            if let Some(url) = web_cache.lines().rev().find(|line| line.contains("gacha-v3/index.html")) {
-                                let url_begin_pos = url.find("https://").unwrap();
-                                let url_end_pos = url_begin_pos + url[url_begin_pos..].find("\0\0\0\0").unwrap();
-
-                                if let Err(err) = open::that(format!("{}#/log", &url[url_begin_pos..url_end_pos])) {
-                                    tracing::error!("Failed to open wishes URL: {err}");
-
-                                    sender.input(AppMsg::Toast {
-                                        title: tr!("wish-url-opening-error"),
-                                        description: Some(err.to_string())
-                                    });
-                                }
-                            }
-
-                            else {
-                                tracing::error!("Couldn't find wishes URL: no url found");
-
-                                sender.input(AppMsg::Toast {
-                                    title: tr!("wish-url-search-failed"),
-                                    description: None
-                                });
-                            }
-                        }
-
-                        Err(err) => {
-                            tracing::error!("Couldn't find wishes URL: failed to open cache file: {err}");
-
-                            sender.input(AppMsg::Toast {
-                                title: tr!("wish-url-search-failed"),
-                                description: Some(err.to_string())
-                            });
-                        }
-                    }
-                }
-
-                else {
-                    tracing::error!("Couldn't find wishes URL: cache file doesn't exist");
-
-                    sender.input(AppMsg::Toast {
-                        title: tr!("wish-url-search-failed"),
-                        description: None
-                    });
-                }
-            }));
-        })));
-
         group.add_action::<About>(RelmAction::new_stateless(move |_| {
             about_dialog_broker.send(AboutDialogMsg::Show);
         }));
@@ -944,12 +833,6 @@ impl SimpleComponent for App {
                             StateUpdating::Game => {
                                 sender.input(AppMsg::SetLoadingStatus(Some(Some(tr!("loading-launcher-state--game")))));
                             }
-
-                            StateUpdating::Voice(locale) => {
-                                sender.input(AppMsg::SetLoadingStatus(Some(Some(tr!("loading-launcher-state--voice", {
-                                    "locale" = locale.to_name()
-                                })))));
-                            }
                         }
                     }
                 });
@@ -1028,7 +911,7 @@ impl SimpleComponent for App {
 
             #[allow(unused_must_use)]
             AppMsg::PredownloadUpdate => {
-                if let Some(LauncherState::PredownloadAvailable { game, mut voices }) = self.state.clone() {
+                if let Some(LauncherState::PredownloadAvailable { mut game }) = self.state.clone() {
                     let tmp = Config::get().unwrap().launcher.temp.unwrap_or_else(std::env::temp_dir);
 
                     self.downloading = true;
@@ -1037,26 +920,18 @@ impl SimpleComponent for App {
 
                     progress_bar_input.send(ProgressBarMsg::UpdateCaption(Some(tr!("downloading"))));
 
-                    let mut diffs: Vec<VersionDiff> = vec![game];
-
-                    diffs.append(&mut voices);
-
                     std::thread::spawn(move || {
-                        for mut diff in diffs {
-                            let result = diff.download_to(&tmp, clone!(@strong progress_bar_input => move |curr, total| {
-                                progress_bar_input.send(ProgressBarMsg::UpdateProgress(curr, total));
-                            }));
+                        let result = game.download_to(&tmp, clone!(@strong progress_bar_input => move |curr, total| {
+                            progress_bar_input.send(ProgressBarMsg::UpdateProgress(curr, total));
+                        }));
 
-                            if let Err(err) = result {
-                                sender.input(AppMsg::Toast {
-                                    title: tr!("downloading-failed"),
-                                    description: Some(err.to_string())
-                                });
+                        if let Err(err) = result {
+                            sender.input(AppMsg::Toast {
+                                title: tr!("downloading-failed"),
+                                description: Some(err.to_string())
+                            });
 
-                                tracing::error!("Failed to predownload update: {err}");
-
-                                break;
-                            }
+                            tracing::error!("Failed to predownload update: {err}");
                         }
 
                         sender.input(AppMsg::SetDownloading(false));

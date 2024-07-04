@@ -21,7 +21,6 @@ pub struct DefaultPathsApp {
     prefix: PathBuf,
     game_global: PathBuf,
     game_china: PathBuf,
-    fps_unlocker: PathBuf,
     components: PathBuf,
     temp: PathBuf
 }
@@ -34,7 +33,6 @@ pub enum Folders {
     Prefix,
     GameGlobal,
     GameChina,
-    FpsUnlocker,
     Components,
     Temp
 }
@@ -187,20 +185,6 @@ impl SimpleAsyncComponent for DefaultPathsApp {
                 },
 
                 adw::ActionRow {
-                    set_title: &tr!("fps-unlocker-folder"),
-                    set_activatable: true,
-
-                    #[watch]
-                    set_subtitle: model.fps_unlocker.to_str().unwrap(),
-
-                    connect_activated => DefaultPathsAppMsg::ChoosePath(Folders::FpsUnlocker),
-
-                    add_prefix = &gtk::Image {
-                        set_icon_name: Some("folder-symbolic")
-                    }
-                },
-
-                adw::ActionRow {
                     set_title: &tr!("components-index"),
                     set_activatable: true,
 
@@ -308,7 +292,6 @@ impl SimpleAsyncComponent for DefaultPathsApp {
             prefix: CONFIG.game.wine.prefix.clone(),
             game_global: CONFIG.game.path.global.clone(),
             game_china: CONFIG.game.path.china.clone(),
-            fps_unlocker: CONFIG.game.enhancements.fps_unlocker.path.clone(),
             components: CONFIG.components.path.clone(),
 
             #[allow(clippy::or_fun_call)]
@@ -340,9 +323,8 @@ impl SimpleAsyncComponent for DefaultPathsApp {
                             self.runners      = result.join("runners");
                             self.dxvks        = result.join("dxvks");
                             self.prefix       = result.join("prefix");
-                            self.game_global  = result.join(concat!("Ge", "nshi", "n Imp", "act"));
-                            self.game_china   = result.join(concat!("Yu", "anS", "hen"));
-                            self.fps_unlocker = result.join("fps-unlocker");
+                            self.game_global  = result.join(concat!("Zen", "less Z", "one Zero"));
+                            self.game_china   = result.join(concat!("Zen", "less Z", "one Zero"));
                             self.components   = result.join("components");
 
                             self.temp.clone_from(&result);
@@ -355,7 +337,6 @@ impl SimpleAsyncComponent for DefaultPathsApp {
                         Folders::Prefix      => self.prefix       = result,
                         Folders::GameGlobal  => self.game_global  = result,
                         Folders::GameChina   => self.game_china   = result,
-                        Folders::FpsUnlocker => self.fps_unlocker = result,
                         Folders::Components  => self.components   = result,
                         Folders::Temp        => self.temp         = result
                     }
@@ -379,9 +360,7 @@ impl SimpleAsyncComponent for DefaultPathsApp {
                                 (old_config.game.wine.prefix, &self.prefix),
                                 (old_config.game.path.global, &self.game_global),
                                 (old_config.game.path.china,  &self.game_china),
-                                (old_config.components.path,  &self.components),
-
-                                (old_config.game.enhancements.fps_unlocker.path, &self.fps_unlocker)
+                                (old_config.components.path,  &self.components)
                             ];
 
                             #[allow(clippy::expect_fun_call)]
@@ -405,7 +384,7 @@ impl SimpleAsyncComponent for DefaultPathsApp {
                         }
 
                         else {
-                            sender.output(Self::Output::ScrollToSelectVoiceovers);
+                            sender.output(Self::Output::ScrollToDownloadComponents);
                         }
                     }
 
@@ -442,7 +421,6 @@ impl DefaultPathsApp {
         config.game.path.global.clone_from(&self.game_global);
         config.game.path.china.clone_from(&self.game_china);
         config.components.path.clone_from(&self.components);
-        config.game.enhancements.fps_unlocker.path.clone_from(&self.fps_unlocker);
 
         config.launcher.temp = Some(self.temp.clone());
 
