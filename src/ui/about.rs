@@ -91,7 +91,18 @@ impl SimpleComponent for AboutDialog {
 
             set_release_notes_version: &APP_VERSION,
             set_release_notes: &[
-                "<p>Initial release</p>"
+                "<p>Fixed</p>",
+
+                "<ul>",
+                    "<li>Fixed infinite updates loop on minor game patches (notably 1.0.1)</li>",
+                    "<li>Fixed prefix paths for proton builds for game drives mapping</li>",
+                "</ul>",
+
+                "<p>Changed</p>",
+
+                "<ul>",
+                    "<li>Removed xdelta3 runtime dependency, updated dwebp package name for fedora</li>",
+                "</ul>"
             ].join("\n"),
 
             set_modal: true,
