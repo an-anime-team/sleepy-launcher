@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixed infinite updates loop on minor game patches (notably 1.0.1)
+- Fixed prefix paths for proton builds for game drives mapping
+
+### Changed
+
+- Removed xdelta3 runtime dependency, updated dwebp package name for fedora
+
 ## [1.0.0] - 04.07.2024
 
 🚀 Initial release
