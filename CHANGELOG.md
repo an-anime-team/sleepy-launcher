@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.1] - 05.07.2024
+
 ### Fixed
 
 - Fixed infinite updates loop on minor game patches (notably 1.0.1)
@@ -22,5 +24,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <br>
 
-[unreleased]: https://github.com/an-anime-team/sleepy-launcher/compare/1.0.0...next
+[unreleased]: https://github.com/an-anime-team/sleepy-launcher/compare/1.0.1...next
+[1.0.1]: https://github.com/an-anime-team/sleepy-launcher/compare/1.0.0...1.0.1
 [1.0.0]: https://github.com/an-anime-team/sleepy-launcher/releases/tag/1.0.0
