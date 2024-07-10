@@ -27,6 +27,7 @@
 | Arch Linux, Manjaro | AUR | [link](https://github.com/an-anime-team/sleepy-launcher/wiki/Installation#-arch-linux-aur) | [sleepy-launcher-bin](https://aur.archlinux.org/packages/sleepy-launcher-bin) |
 | Fedora, OpenSUSE | RPM | [link](https://github.com/an-anime-team/sleepy-launcher/wiki/Installation#-fedora-rpm) | [SL](https://build.opensuse.org/repositories/home:Maroxy:AAT-Apps/SL) |
 | Ubuntu | pacstall | - | [sleepy-launcher-bin](https://pacstall.dev/packages/sleepy-launcher-bin) |
+| Ubuntu | DEB | - | [sleepy-launcher](https://launchpad.net/~an-anime-team/+archive/ubuntu/sleepy-launcher) |
 | Gentoo | ebuild | [link](https://github.com/an-anime-team/sleepy-launcher/wiki/Installation#-gentoo-linux-ebuild) | [aagl-ebuilds](https://github.com/an-anime-team/gentoo-ebuilds) |
 | NixOS | nixpkg | [link](https://github.com/an-anime-team/sleepy-launcher/wiki/Installation#-nixos-nixpkg) | [aagl-gtk-on-nix](https://github.com/ezKEa/aagl-gtk-on-nix) |
 
