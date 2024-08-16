@@ -39,7 +39,7 @@ impl SimpleComponent for AboutDialog {
             set_website: "https://github.com/an-anime-team/sleepy-launcher",
             set_issue_url: "https://github.com/an-anime-team/sleepy-launcher/issues",
 
-            set_license_type: gtk::License::Gpl30,
+            set_license_type: gtk::License::Gpl30Only,
             set_version: &APP_VERSION,
 
             set_developers: &[
@@ -91,17 +91,23 @@ impl SimpleComponent for AboutDialog {
 
             set_release_notes_version: &APP_VERSION,
             set_release_notes: &[
-                "<p>Fixed</p>",
+                "<p>Added</p>",
 
                 "<ul>",
-                    "<li>Fixed infinite updates loop on minor game patches (notably 1.0.1)</li>",
-                    "<li>Fixed prefix paths for proton builds for game drives mapping</li>",
+                    "<li>Respect root \".version\" file for game version parsing</li>",
+                    "<li>Added disabling of 2 new telemetry servers</li>",
                 "</ul>",
 
                 "<p>Changed</p>",
 
                 "<ul>",
-                    "<li>Removed xdelta3 runtime dependency, updated dwebp package name for fedora</li>",
+                    "<li>Prioritize parsed game version over the API response</li>",
+                "</ul>",
+
+                "<p>Removed</p>",
+
+                "<ul>",
+                    "<li>Removed migrate installation feature</li>",
                 "</ul>"
             ].join("\n"),
 
