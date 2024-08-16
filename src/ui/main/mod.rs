@@ -483,11 +483,16 @@ impl SimpleComponent for App {
                                         connect_clicked[sender] => move |_| {
                                             sender.input(AppMsg::DisableKillGameButton(true));
 
-                                            std::thread::spawn(clone!(@strong sender => move || {
-                                                std::thread::sleep(std::time::Duration::from_secs(3));
+                                            std::thread::spawn(clone!(
+                                                #[strong]
+                                                sender,
 
-                                                sender.input(AppMsg::DisableKillGameButton(false));
-                                            }));
+                                                move || {
+                                                    std::thread::sleep(std::time::Duration::from_secs(3));
+
+                                                    sender.input(AppMsg::DisableKillGameButton(false));
+                                                }
+                                            ));
 
                                             let result = std::process::Command::new("pkill")
                                                 .arg("-f") // full text search
@@ -643,56 +648,76 @@ impl SimpleComponent for App {
 
         // TODO: reduce code somehow
 
-        group.add_action::<LauncherFolder>(RelmAction::new_stateless(clone!(@strong sender => move |_| {
-            if let Err(err) = open::that(LAUNCHER_FOLDER.as_path()) {
-                sender.input(AppMsg::Toast {
-                    title: tr!("launcher-folder-opening-error"),
-                    description: Some(err.to_string())
-                });
+        group.add_action::<LauncherFolder>(RelmAction::new_stateless(clone!(
+            #[strong]
+            sender,
 
-                tracing::error!("Failed to open launcher folder: {err}");
-            }
-        })));
-
-        group.add_action::<GameFolder>(RelmAction::new_stateless(clone!(@strong sender => move |_| {
-            let path = match Config::get() {
-                Ok(config) => config.game.path.for_edition(config.launcher.edition).to_path_buf(),
-                Err(_) => CONFIG.game.path.for_edition(CONFIG.launcher.edition).to_path_buf(),
-            };
-
-            if let Err(err) = open::that(path) {
-                sender.input(AppMsg::Toast {
-                    title: tr!("game-folder-opening-error"),
-                    description: Some(err.to_string())
-                });
-
-                tracing::error!("Failed to open game folder: {err}");
-            }
-        })));
-
-        group.add_action::<ConfigFile>(RelmAction::new_stateless(clone!(@strong sender => move |_| {
-            if let Ok(file) = config_file() {
-                if let Err(err) = open::that(file) {
+            move |_| {
+                if let Err(err) = open::that(LAUNCHER_FOLDER.as_path()) {
                     sender.input(AppMsg::Toast {
-                        title: tr!("config-file-opening-error"),
+                        title: tr!("launcher-folder-opening-error"),
                         description: Some(err.to_string())
                     });
 
-                    tracing::error!("Failed to open config file: {err}");
+                    tracing::error!("Failed to open launcher folder: {err}");
                 }
             }
-        })));
+        )));
 
-        group.add_action::<DebugFile>(RelmAction::new_stateless(clone!(@strong sender => move |_| {
-            if let Err(err) = open::that(crate::DEBUG_FILE.as_os_str()) {
-                sender.input(AppMsg::Toast {
-                    title: tr!("debug-file-opening-error"),
-                    description: Some(err.to_string())
-                });
+        group.add_action::<GameFolder>(RelmAction::new_stateless(clone!(
+            #[strong]
+            sender,
 
-                tracing::error!("Failed to open debug file: {err}");
+            move |_| {
+                let path = match Config::get() {
+                    Ok(config) => config.game.path.for_edition(config.launcher.edition).to_path_buf(),
+                    Err(_) => CONFIG.game.path.for_edition(CONFIG.launcher.edition).to_path_buf(),
+                };
+
+                if let Err(err) = open::that(path) {
+                    sender.input(AppMsg::Toast {
+                        title: tr!("game-folder-opening-error"),
+                        description: Some(err.to_string())
+                    });
+
+                    tracing::error!("Failed to open game folder: {err}");
+                }
             }
-        })));
+        )));
+
+        group.add_action::<ConfigFile>(RelmAction::new_stateless(clone!(
+            #[strong]
+            sender,
+
+            move |_| {
+                if let Ok(file) = config_file() {
+                    if let Err(err) = open::that(file) {
+                        sender.input(AppMsg::Toast {
+                            title: tr!("config-file-opening-error"),
+                            description: Some(err.to_string())
+                        });
+
+                        tracing::error!("Failed to open config file: {err}");
+                    }
+                }
+            }
+        )));
+
+        group.add_action::<DebugFile>(RelmAction::new_stateless(clone!(
+            #[strong]
+            sender,
+
+            move |_| {
+                if let Err(err) = open::that(crate::DEBUG_FILE.as_os_str()) {
+                    sender.input(AppMsg::Toast {
+                        title: tr!("debug-file-opening-error"),
+                        description: Some(err.to_string())
+                    });
+
+                    tracing::error!("Failed to open debug file: {err}");
+                }
+            }
+        )));
 
         group.add_action::<About>(RelmAction::new_stateless(move |_| {
             about_dialog_broker.send(AboutDialogMsg::Show);
@@ -713,87 +738,102 @@ impl SimpleComponent for App {
             // Download background picture if needed
 
             if download_picture {
-                tasks.push(std::thread::spawn(clone!(@strong sender => move || {
-                    if let Err(err) = crate::background::download_background() {
-                        tracing::error!("Failed to download background picture: {err}");
+                tasks.push(std::thread::spawn(clone!(
+                    #[strong]
+                    sender,
 
-                        sender.input(AppMsg::Toast {
-                            title: tr!("background-downloading-failed"),
-                            description: Some(err.to_string())
-                        });
+                    move || {
+                        if let Err(err) = crate::background::download_background() {
+                            tracing::error!("Failed to download background picture: {err}");
+
+                            sender.input(AppMsg::Toast {
+                                title: tr!("background-downloading-failed"),
+                                description: Some(err.to_string())
+                            });
+                        }
                     }
-                })));
+                )));
             }
 
             // Update components index
 
-            tasks.push(std::thread::spawn(clone!(@strong sender => move || {
-                let components = ComponentsLoader::new(&CONFIG.components.path);
+            tasks.push(std::thread::spawn(clone!(
+                #[strong]
+                sender,
 
-                match components.is_sync(&CONFIG.components.servers) {
-                    Ok(Some(_)) => (),
+                move || {
+                    let components = ComponentsLoader::new(&CONFIG.components.path);
 
-                    Ok(None) => {
-                        for host in &CONFIG.components.servers {
-                            match components.sync(host) {
-                                Ok(changes) => {
-                                    sender.input(AppMsg::Toast {
-                                        title: tr!("components-index-updated"),
-                                        description: if changes.is_empty() {
-                                            None
-                                        } else {
-                                            Some(changes.into_iter()
-                                                .map(|line| format!("- {line}"))
-                                                .collect::<Vec<_>>()
-                                                .join("\n"))
-                                        }
-                                    });
+                    match components.is_sync(&CONFIG.components.servers) {
+                        Ok(Some(_)) => (),
 
-                                    break;
-                                }
+                        Ok(None) => {
+                            for host in &CONFIG.components.servers {
+                                match components.sync(host) {
+                                    Ok(changes) => {
+                                        sender.input(AppMsg::Toast {
+                                            title: tr!("components-index-updated"),
+                                            description: if changes.is_empty() {
+                                                None
+                                            } else {
+                                                Some(changes.into_iter()
+                                                    .map(|line| format!("- {line}"))
+                                                    .collect::<Vec<_>>()
+                                                    .join("\n"))
+                                            }
+                                        });
 
-                                Err(err) => {
-                                    tracing::error!("Failed to sync components index");
+                                        break;
+                                    }
 
-                                    sender.input(AppMsg::Toast {
-                                        title: tr!("components-index-sync-failed"),
-                                        description: Some(err.to_string())
-                                    });
+                                    Err(err) => {
+                                        tracing::error!("Failed to sync components index");
+
+                                        sender.input(AppMsg::Toast {
+                                            title: tr!("components-index-sync-failed"),
+                                            description: Some(err.to_string())
+                                        });
+                                    }
                                 }
                             }
                         }
-                    }
 
-                    Err(err) => {
-                        tracing::error!("Failed to verify that components index synced");
+                        Err(err) => {
+                            tracing::error!("Failed to verify that components index synced");
 
-                        sender.input(AppMsg::Toast {
-                            title: tr!("components-index-verify-failed"),
-                            description: Some(err.to_string())
-                        });
+                            sender.input(AppMsg::Toast {
+                                title: tr!("components-index-verify-failed"),
+                                description: Some(err.to_string())
+                            });
+                        }
                     }
                 }
-            })));
+            )));
 
             // Update initial game version status
 
-            tasks.push(std::thread::spawn(clone!(@strong sender => move || {
-                sender.input(AppMsg::SetGameDiff(match GAME.try_get_diff() {
-                    Ok(diff) => Some(diff),
-                    Err(err) => {
-                        tracing::error!("Failed to find game diff: {err}");
+            tasks.push(std::thread::spawn(clone!(
+                #[strong]
+                sender,
 
-                        sender.input(AppMsg::Toast {
-                            title: tr!("game-diff-finding-error"),
-                            description: Some(err.to_string())
-                        });
+                move || {
+                    sender.input(AppMsg::SetGameDiff(match GAME.try_get_diff() {
+                        Ok(diff) => Some(diff),
+                        Err(err) => {
+                            tracing::error!("Failed to find game diff: {err}");
 
-                        None
-                    }
-                }));
+                            sender.input(AppMsg::Toast {
+                                title: tr!("game-diff-finding-error"),
+                                description: Some(err.to_string())
+                            });
 
-                tracing::info!("Updated game version status");
-            })));
+                            None
+                        }
+                    }));
+
+                    tracing::info!("Updated game version status");
+                }
+            )));
 
             // Await for tasks to finish execution
             for task in tasks {
@@ -827,15 +867,20 @@ impl SimpleComponent for App {
                     self.disabled_buttons = true;
                 }
 
-                let updater = clone!(@strong sender => move |state| {
-                    if show_status_page {
-                        match state {
-                            StateUpdating::Game => {
-                                sender.input(AppMsg::SetLoadingStatus(Some(Some(tr!("loading-launcher-state--game")))));
+                let updater = clone!(
+                    #[strong]
+                    sender,
+
+                    move |state| {
+                        if show_status_page {
+                            match state {
+                                StateUpdating::Game => {
+                                    sender.input(AppMsg::SetLoadingStatus(Some(Some(tr!("loading-launcher-state--game")))));
+                                }
                             }
                         }
                     }
-                });
+                );
 
                 let state = match LauncherState::get_from_config(updater) {
                     Ok(state) => Some(state),
@@ -921,9 +966,14 @@ impl SimpleComponent for App {
                     progress_bar_input.send(ProgressBarMsg::UpdateCaption(Some(tr!("downloading"))));
 
                     std::thread::spawn(move || {
-                        let result = game.download_to(&tmp, clone!(@strong progress_bar_input => move |curr, total| {
-                            progress_bar_input.send(ProgressBarMsg::UpdateProgress(curr, total));
-                        }));
+                        let result = game.download_to(&tmp, clone!(
+                            #[strong]
+                            progress_bar_input,
+
+                            move |curr, total| {
+                                progress_bar_input.send(ProgressBarMsg::UpdateProgress(curr, total));
+                            }
+                        ));
 
                         if let Err(err) = result {
                             sender.input(AppMsg::Toast {

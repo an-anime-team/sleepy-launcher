@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Respect root `.version` file for game version parsing
+- Added disabling of 2 new telemetry servers
+
+### Fixed
+
+- Create cache folder if it doesn't exist
+
+### Changed
+
+- Prioritize parsed game version over the API response
+
+### Removed
+
+- Removed migrate installation feature
+
 ## [1.0.1] - 05.07.2024
 
 ### Fixed
