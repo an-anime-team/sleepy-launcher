@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 16.08.2024
+
 ### Added
 
 - Respect root `.version` file for game version parsing
@@ -41,6 +43,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <br>
 
-[unreleased]: https://github.com/an-anime-team/sleepy-launcher/compare/1.0.1...next
+[unreleased]: https://github.com/an-anime-team/sleepy-launcher/compare/1.1.0...next
+[1.1.0]: https://github.com/an-anime-team/sleepy-launcher/compare/1.0.1...1.1.0
 [1.0.1]: https://github.com/an-anime-team/sleepy-launcher/compare/1.0.0...1.0.1
 [1.0.0]: https://github.com/an-anime-team/sleepy-launcher/releases/tag/1.0.0
