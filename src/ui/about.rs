@@ -98,6 +98,12 @@ impl SimpleComponent for AboutDialog {
                     "<li>Added disabling of 2 new telemetry servers</li>",
                 "</ul>",
 
+                "<p>Fixed</p>",
+
+                "<ul>",
+                    "<li>Create cache folder if it doesn't exist</li>",
+                "</ul>",
+
                 "<p>Changed</p>",
 
                 "<ul>",
