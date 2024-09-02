@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.1] - 02.09.2024
+
 ### Fixed
 
 - Fixed gamescope config file layout
@@ -64,7 +66,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <br>
 
-[unreleased]: https://github.com/an-anime-team/sleepy-launcher/compare/1.2.0...next
+[unreleased]: https://github.com/an-anime-team/sleepy-launcher/compare/1.2.1...next
+[1.2.1]: https://github.com/an-anime-team/sleepy-launcher/compare/1.2.0...1.2.1
 [1.2.0]: https://github.com/an-anime-team/sleepy-launcher/compare/1.1.0...1.2.0
 [1.1.0]: https://github.com/an-anime-team/sleepy-launcher/compare/1.0.1...1.1.0
 [1.0.1]: https://github.com/an-anime-team/sleepy-launcher/compare/1.0.0...1.0.1
