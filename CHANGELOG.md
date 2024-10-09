@@ -9,10 +9,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.3.0] - 09.10.2024
 
-### Added
-
-- Added 5.1.0 voiceovers sizes
-
 ### Removed
 
 - Removed Discord RPC support
