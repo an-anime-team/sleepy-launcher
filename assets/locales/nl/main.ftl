@@ -13,7 +13,7 @@ launcher-folder = Launcher map
 game-folder = Spelmap
 config-file = Configuratiebestand
 debug-file = Debugbestand
-wish-url = Open wishes
+signal-search-url = Open singal searches
 about = Over
 
 

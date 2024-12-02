@@ -3,8 +3,8 @@ game-folder-opening-error = 打开游戏文件夹失败
 config-file-opening-error = 打开配置文件失败
 debug-file-opening-error = 打开调试文件失败
 
-wish-url-search-failed = 找不到祈愿 URL
-wish-url-opening-error = 无法转到祈愿 URL
+signal-search-url-search-failed = 找不到调频记录网址
+signal-search-url-opening-error = 无法打开调频记录
 
 wine-run-error = 使用 Wine 运行 {$executable} 失败
 

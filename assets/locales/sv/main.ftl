@@ -13,7 +13,7 @@ launcher-folder = Mapp för starthanterare
 game-folder = Spelets mapp
 config-file = Konfigurationsfil
 debug-file = Debug-fil
-wish-url = Öppna önskemål
+signal-search-url = Open singal searches
 about = Om
 
 

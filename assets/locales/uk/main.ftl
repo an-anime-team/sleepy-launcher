@@ -13,7 +13,7 @@ launcher-folder = Папка лаунчера
 game-folder = Папка гри
 config-file = Файл налаштувань
 debug-file = Журнал відлагодження
-wish-url = Історія молитв
+signal-search-url = Open singal searches
 about = Про програму
 
 close = { $form ->

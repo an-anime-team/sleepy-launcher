@@ -40,6 +40,8 @@ relm4::new_stateless_action!(GameFolder, WindowActionGroup, "game_folder");
 relm4::new_stateless_action!(ConfigFile, WindowActionGroup, "config_file");
 relm4::new_stateless_action!(DebugFile, WindowActionGroup, "debug_file");
 
+relm4::new_stateless_action!(SignalSearchUrl, WindowActionGroup, "signal_search_url");
+
 relm4::new_stateless_action!(About, WindowActionGroup, "about");
 
 pub static mut MAIN_WINDOW: Option<adw::ApplicationWindow> = None;
@@ -115,6 +117,10 @@ impl SimpleComponent for App {
                 &tr!("game-folder") => GameFolder,
                 &tr!("config-file") => ConfigFile,
                 &tr!("debug-file") => DebugFile,
+            },
+
+            section! {
+                &tr!("signal-search-url") => SignalSearchUrl
             },
 
             section! {
@@ -716,6 +722,94 @@ impl SimpleComponent for App {
 
                     tracing::error!("Failed to open debug file: {err}");
                 }
+            }
+        )));
+
+        group.add_action::<SignalSearchUrl>(RelmAction::new_stateless(clone!(
+            #[strong]
+            sender,
+
+            move |_| {
+                std::thread::spawn(clone!(
+                    #[strong]
+                    sender,
+
+                    move || {
+                        let config = Config::get().unwrap_or_else(|_| CONFIG.clone());
+
+                        let web_cache = config.game.path.for_edition(config.launcher.edition)
+                            .join(config.launcher.edition.data_folder())
+                            .join("webCaches");
+
+                        // Find newest cache folder
+                        let mut web_cache_id = None;
+
+                        if let Ok(entries) = web_cache.read_dir() {
+                            for entry in entries.flatten() {
+                                if entry.path().is_dir() &&
+                                entry.file_name().to_string_lossy().trim_matches(|c| "0123456789.".contains(c)).is_empty() &&
+                                Some(entry.file_name()) > web_cache_id
+                                {
+                                    web_cache_id = Some(entry.file_name());
+                                }
+                            }
+                        }
+
+                        if let Some(web_cache_id) = web_cache_id {
+                            let web_cache = web_cache
+                                .join(web_cache_id)
+                                .join("Cache/Cache_Data/data_2");
+
+                            match std::fs::read(web_cache) {
+                                Ok(web_cache) => {
+                                    let web_cache = String::from_utf8_lossy(&web_cache);
+
+                                    // https://webstatic-sea.[ho-yo-ver-se].com/[ge-nsh-in]/event/e20190909gacha-v2/index.html?......
+                                    if let Some(url) = web_cache.lines().rev().find(|line| line.contains("getGachaLog")) {
+                                        let url_begin_pos = url.find("https://").unwrap();
+                                        let url_end_pos = url_begin_pos + url[url_begin_pos..].find("\0\0\0\0").unwrap();
+
+                                        if let Err(err) = open::that(format!("{}#/log", &url[url_begin_pos..url_end_pos])) {
+                                            tracing::error!("Failed to open Signal Search URL: {err}");
+
+                                            sender.input(AppMsg::Toast {
+                                                title: tr!("signal-search-url-opening-error"),
+                                                description: Some(err.to_string())
+                                            });
+                                        }
+                                    }
+
+                                    else {
+                                        tracing::error!("Couldn't find wishes URL: no url found");
+
+                                        sender.input(AppMsg::Toast {
+                                            title: tr!("signal-search-url-search-failed"),
+                                            description: None
+                                        });
+                                    }
+                                }
+
+                                Err(err) => {
+                                    tracing::error!("Couldn't find wishes URL: failed to open cache file: {err}");
+
+                                    sender.input(AppMsg::Toast {
+                                        title: tr!("signal-search-url-search-failed"),
+                                        description: Some(err.to_string())
+                                    });
+                                }
+                            }
+                        }
+
+                        else {
+                            tracing::error!("Couldn't find Signal Search URL: cache file doesn't exist");
+
+                            sender.input(AppMsg::Toast {
+                                title: tr!("signal-search-url-search-failed"),
+                                description: None
+                            });
+                        }
+                    }
+                ));
             }
         )));
 

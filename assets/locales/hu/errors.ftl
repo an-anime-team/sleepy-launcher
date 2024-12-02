@@ -3,8 +3,8 @@ game-folder-opening-error = Játék mappa megnyitása sikertelen
 config-file-opening-error = Config fájl megnyitása sikertelen
 debug-file-opening-error = Debug fájl megnyitása sikertelen
 
-wish-url-search-failed = Nem találtam wish url-t
-wish-url-opening-error = Nem tudtam megnyitni a wish url-t
+signal-search-url-search-failed = No Singal Search URL found
+signal-search-url-opening-error = Could not open Signal Search URL
 
 wine-run-error = Nem sikerült a {$executable} futtatása wine-nal
 

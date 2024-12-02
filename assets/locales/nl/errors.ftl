@@ -3,8 +3,8 @@ game-folder-opening-error = Kan de spel map niet openen
 config-file-opening-error = Kan het configuratiebestand niet openen
 debug-file-opening-error = Kan debugbestand niet openen
 
-wish-url-search-failed = Geen wishes URL gevonden
-wish-url-opening-error = Kan wishes URL niet openen
+signal-search-url-search-failed = No Singal Search URL found
+signal-search-url-opening-error = Could not open Signal Search URL
 
 wine-run-error = Kan {$executable} niet starten met Wine
 

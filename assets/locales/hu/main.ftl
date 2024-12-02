@@ -13,7 +13,7 @@ launcher-folder = Launcher mappa
 game-folder = Játék mappa
 config-file = Config fájl
 debug-file = Debug fájl
-wish-url = Wishek megnyitása
+signal-search-url = Open singal searches
 about = Részletek
 
 

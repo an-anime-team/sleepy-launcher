@@ -13,7 +13,7 @@ launcher-folder = Folder launcher
 game-folder = Folder game 
 config-file = File konfigurasi 
 debug-file = File debug
-wish-url = Buka wishes 
+signal-search-url = Open singal searches
 about = Tentang 
 
 close = { $form ->

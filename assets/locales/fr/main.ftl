@@ -13,7 +13,7 @@ launcher-folder = Dossier du launcher
 game-folder = Dossier du jeu
 config-file = Fichier de configuration
 debug-file = Fichier débug
-wish-url = Open wishes
+signal-search-url = Open singal searches
 about = À propos
 
 

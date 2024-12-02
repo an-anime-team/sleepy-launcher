@@ -3,8 +3,8 @@ game-folder-opening-error = Det gick inte att öppna spelets mapp
 config-file-opening-error = Det gick inte att öppna konfigurationsfilen
 debug-file-opening-error = Det gick inte att öppna debug-filen
 
-wish-url-search-failed = Inget URL till önskningar funnet
-wish-url-opening-error = Det gick inte att öppna URL för önskningar
+signal-search-url-search-failed = No Singal Search URL found
+signal-search-url-opening-error = Could not open Signal Search URL
 
 wine-run-error = Det gick inte att köra {$executable} körbara filen med Wine
 

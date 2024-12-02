@@ -13,7 +13,7 @@ launcher-folder = 런처 폴더
 game-folder = 게임 폴더
 config-file = 구성 파일
 debug-file = 디버그 파일
-wish-url = Wishes 열기
+signal-search-url = Open singal searches
 about = 정보
 
 

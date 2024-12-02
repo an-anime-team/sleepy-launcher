@@ -3,8 +3,8 @@ game-folder-opening-error = 게임 폴더를 열지 못했습니다
 config-file-opening-error = 구성 파일을 열지 못했습니다
 debug-file-opening-error = 디버그 파일을 열지 못했습니다
 
-wish-url-search-failed = Wishes URL을 찾지 못했습니다
-wish-url-opening-error = Wishes URL을 열지 못했습니다
+signal-search-url-search-failed = No Singal Search URL found
+signal-search-url-opening-error = Could not open Signal Search URL
 
 wine-run-error = Wine을 사용하여 {$executable} 실행 파일을 실행하지 못했습니다
 

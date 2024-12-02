@@ -3,8 +3,8 @@ game-folder-opening-error = Failed to open game folder
 config-file-opening-error = Failed to open config file
 debug-file-opening-error = Failed to open debug file
 
-wish-url-search-failed = No wishes url found
-wish-url-opening-error = Could not open wishes url
+signal-search-url-search-failed = No Singal Search URL found
+signal-search-url-opening-error = Could not open Signal Search URL
 
 wine-run-error = Failed to run {$executable} executable using wine
 
