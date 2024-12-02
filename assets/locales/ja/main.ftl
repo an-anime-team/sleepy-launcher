@@ -13,7 +13,7 @@ launcher-folder = ランチャーフォルダ
 game-folder = ゲームフォルダ
 config-file = 設定ファイル
 debug-file = デバッグファイル
-wish-url = 祈願履歴を開く
+signal-search-url = Open singal searches
 about = "Sleepy Launcher"について 
 
 

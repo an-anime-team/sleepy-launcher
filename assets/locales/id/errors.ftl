@@ -3,8 +3,8 @@ game-folder-opening-error = Gagal membuka folder game
 config-file-opening-error = Gagal membuka file konfigurasi
 debug-file-opening-error = Gagal membuka file debug
 
-wish-url-search-failed = Tautan wish tidak ditemukan
-wish-url-opening-error = Tidak dapat membuka tautan wish
+signal-search-url-search-failed = No Singal Search URL found
+signal-search-url-opening-error = Could not open Signal Search URL
 
 wine-run-error = Gagal menjalankan {$executable} menggunakan wine
 

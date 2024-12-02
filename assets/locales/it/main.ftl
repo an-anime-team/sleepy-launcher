@@ -13,7 +13,7 @@ launcher-folder = Cartella del launcher
 game-folder = Cartella del gioco
 config-file = File di configurazione
 debug-file = File di debug
-wish-url = Apri i desideri
+signal-search-url = Open singal searches
 about = Informazioni
 
 

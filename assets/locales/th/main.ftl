@@ -13,7 +13,7 @@ launcher-folder = โฟลเดอร์ Launcher
 game-folder = โฟลเดอร์เกม
 config-file = ไฟล์ Config
 debug-file = ไฟล์ Debug
-wish-url = เปิด URL การอธิษฐาน
+signal-search-url = Open singal searches
 about = เกี่ยวกับ
 
 

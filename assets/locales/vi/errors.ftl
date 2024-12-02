@@ -3,8 +3,8 @@ game-folder-opening-error =  Không mở được thư mục trò chơi
 config-file-opening-error = Không thể mở tệp cấu hình
 debug-file-opening-error = Không thể mở tệp gỡ lỗi
 
-wish-url-search-failed = Không tìm thấy url lịch sử Cầu Nguyện
-wish-url-opening-error = Không thể mở url lịch sử Cầu Nguyện 
+signal-search-url-search-failed = No Singal Search URL found
+signal-search-url-opening-error = Could not open Signal Search URL
 
 wine-run-error = Không chạy được tệp thực thi {$executable} bằng Wine
 
