@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added ability to extract the signal search history URL
+
 ### Changed
 
 - Removed support for launching with Proton from the launcher.
