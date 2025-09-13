@@ -1,6 +1,6 @@
 [package]
 name = "sleepy-launcher"
-version = "1.3.0"
+version = "1.4.0"
 description = "Sleepy launcher"
 authors = ["Nikita Podvirnyi <krypt0nn@vk.com>"]
 homepage = "https://github.com/an-anime-team/sleepy-launcher"
