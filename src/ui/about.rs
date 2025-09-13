@@ -94,13 +94,13 @@ impl SimpleComponent for AboutDialog {
                 "<p>Added</p>",
 
                 "<ul>",
-                    "<li>Added 5.1.0 voiceovers sizes</li>",
+                    "<li>Added ability to extract the signal search history URL</li>",
                 "</ul>",
 
-                "<p>Removed</p>",
+                "<p>Changed</p>",
 
                 "<ul>",
-                    "<li>Removed Discord RPC support</li>",
+                    "<li>Removed support for launching with Proton from the launcher. Launching with proton externally is unaffected.</li>",
                 "</ul>"
             ].join("\n"),
 
