@@ -13,7 +13,7 @@ launcher-folder = İstemci dosyası
 game-folder = Oyun dosyası
 config-file = Config dosyası
 debug-file = Debug dosyası
-wish-url = Dilekleri aç
+signal-search-url = Open singal searches
 about = Hakkında
 
 

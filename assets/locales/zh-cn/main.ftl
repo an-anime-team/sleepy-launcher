@@ -13,7 +13,7 @@ launcher-folder = 启动器文件夹
 game-folder = 游戏文件夹
 config-file = 配置文件
 debug-file = 调试文件
-wish-url = 转到祈愿 URL
+signal-search-url = 调频记录
 about = 关于
 
 

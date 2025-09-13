@@ -14,7 +14,7 @@ launcher-folder = Folder launchera
 game-folder = Folder gry
 config-file = Plik konfiguracyjny
 debug-file = Plik debugowania
-wish-url = Otwórz życzenia
+signal-search-url = Open singal searches
 about = O programie
 
 

@@ -3,8 +3,8 @@ game-folder-opening-error = Nepodařilo se otevřít složku se hrou
 config-file-opening-error = Nepodařilo se otevřít konfigurační soubor
 debug-file-opening-error = Nepodařilo se otevřít debugovací soubor
 
-wish-url-search-failed = Nebyla nalezena žádná adresa URL wishů
-wish-url-opening-error = Nepodařilo se otevřít URL wishů
+signal-search-url-search-failed = No Singal Search URL found
+signal-search-url-opening-error = Could not open Signal Search URL
 
 wine-run-error = Nepodařilo se spustit {$executable} pomocí Wine
 

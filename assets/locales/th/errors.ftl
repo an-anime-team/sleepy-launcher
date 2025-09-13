@@ -3,8 +3,8 @@ game-folder-opening-error = ไม่สามารถเปิดโฟลเ�
 config-file-opening-error = ไม่สามารถเปิดไฟล์ config ได้
 debug-file-opening-error = ไม่สามารถเปิดไฟล์ debug ได้
 
-wish-url-search-failed = ไม่พบ URL การอธิษฐาน
-wish-url-opening-error = ไม่สามารถเปิด URL การอธิษฐานได้
+signal-search-url-search-failed = No Singal Search URL found
+signal-search-url-opening-error = Could not open Signal Search URL
 
 wine-run-error = ล้มเหลวในการปฏิบัติการเรียกใช้ไฟล์ {$executable} โดยใช้ Wine
 

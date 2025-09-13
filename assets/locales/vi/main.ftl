@@ -13,7 +13,7 @@ launcher-folder = Thư mục Launcher
 game-folder = Thư mục trò chơi
 config-file = Tệp cấu hình
 debug-file = Tệp gỡ lỗi
-wish-url = Lịch sử Cầu Nguyện
+signal-search-url = Open singal searches
 about = Về chúng tôi
 
 

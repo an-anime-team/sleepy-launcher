@@ -13,7 +13,7 @@ launcher-folder = Složka launcheru
 game-folder = Složka hry
 config-file = Konfigurační soubor
 debug-file = Debugovací soubor
-wish-url = Otevřít přání
+signal-search-url = Open singal searches
 about = info
 
 

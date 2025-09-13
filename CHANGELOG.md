@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.0] - 13.09.2025
+
+### Added
+
+- Added ability to extract the signal search history URL
+
+### Changed
+
+- Removed support for launching with Proton from the launcher.
+  Launching with proton externally is unaffected.
+
 ## [1.3.0] - 09.10.2024
 
 ### Removed
@@ -72,7 +83,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <br>
 
-[unreleased]: https://github.com/an-anime-team/sleepy-launcher/compare/1.3.0...next
+[unreleased]: https://github.com/an-anime-team/sleepy-launcher/compare/1.4.0...next
+[1.4.0]: https://github.com/an-anime-team/sleepy-launcher/compare/1.3.0...1.4.0
 [1.3.0]: https://github.com/an-anime-team/sleepy-launcher/compare/1.2.1...1.3.0
 [1.2.1]: https://github.com/an-anime-team/sleepy-launcher/compare/1.2.0...1.2.1
 [1.2.0]: https://github.com/an-anime-team/sleepy-launcher/compare/1.1.0...1.2.0

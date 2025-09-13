@@ -3,8 +3,8 @@ game-folder-opening-error = ゲームフォルダを開くのに失敗しまし�
 config-file-opening-error = 設定ファイルを開くのに失敗しました
 debug-file-opening-error = デバッグファイルを開くのに失敗しました
 
-wish-url-search-failed = 祈願履歴がありません
-wish-url-opening-error = 祈願履歴ページを開けませんでした。
+signal-search-url-search-failed = No Singal Search URL found
+signal-search-url-opening-error = Could not open Signal Search URL
 
 wine-run-error = wineを利用して{$executable} を実行するのに失敗しました。
 

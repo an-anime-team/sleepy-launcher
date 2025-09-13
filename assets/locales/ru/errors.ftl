@@ -3,8 +3,8 @@ game-folder-opening-error = Не удалось открыть папку игр
 config-file-opening-error = Не удалось открыть файл настроек
 debug-file-opening-error = Не удалось открыть файл отладки
 
-wish-url-search-failed = Ссылка на историю молитв не найдена
-wish-url-opening-error = Не удалось открыть ссылку с историей молитв
+signal-search-url-search-failed = No Singal Search URL found
+signal-search-url-opening-error = Could not open Signal Search URL
 
 wine-run-error = Не удалось запустить {$executable} используя Wine
 
