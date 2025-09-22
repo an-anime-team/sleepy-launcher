@@ -94,13 +94,7 @@ impl SimpleComponent for AboutDialog {
                 "<p>Added</p>",
 
                 "<ul>",
-                    "<li>Added ability to extract the signal search history URL</li>",
-                "</ul>",
-
-                "<p>Changed</p>",
-
-                "<ul>",
-                    "<li>Removed support for launching with Proton from the launcher. Launching with proton externally is unaffected.</li>",
+                    "<li>Added DXVK installation check for broken dxvk installations</li>",
                 "</ul>"
             ].join("\n"),
 
