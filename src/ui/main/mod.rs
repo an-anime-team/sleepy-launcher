@@ -11,6 +11,7 @@ use gtk::glib::clone;
 
 mod repair_game;
 mod download_wine;
+mod install_dxvk;
 mod create_prefix;
 mod download_diff;
 mod migrate_folder;
@@ -378,7 +379,8 @@ impl SimpleComponent for App {
 
                                                 Some(LauncherState::FolderMigrationRequired { .. }) |
                                                 Some(LauncherState::WineNotInstalled) |
-                                                Some(LauncherState::PrefixNotExists) => "document-save-symbolic",
+                                                Some(LauncherState::PrefixNotExists) |
+                                                Some(LauncherState::DxvkNotInstalled) => "document-save-symbolic",
 
                                                 Some(LauncherState::GameUpdateAvailable(_)) |
                                                 Some(LauncherState::GameNotInstalled(_)) |
@@ -402,6 +404,7 @@ impl SimpleComponent for App {
 
                                                 Some(LauncherState::WineNotInstalled) => tr!("download-wine"),
                                                 Some(LauncherState::PrefixNotExists)  => tr!("create-prefix"),
+                                                Some(LauncherState::DxvkNotInstalled) => tr!("install-dxvk"),
 
                                                 Some(LauncherState::GameUpdateAvailable(diff)) |
                                                 Some(LauncherState::GameOutdated(diff)) |
@@ -1099,6 +1102,10 @@ impl SimpleComponent for App {
 
                     LauncherState::WineNotInstalled => download_wine::download_wine(sender, self.progress_bar.sender().to_owned()),
                     LauncherState::PrefixNotExists  => create_prefix::create_prefix(sender),
+
+                    LauncherState::DxvkNotInstalled => {
+                        install_dxvk::install_dxvk(sender, self.progress_bar.sender().to_owned())
+                    }
 
                     LauncherState::GameUpdateAvailable(diff) |
                     LauncherState::GameNotInstalled(diff) |
