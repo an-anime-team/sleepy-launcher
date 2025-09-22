@@ -13,7 +13,7 @@ launcher-folder = Launcher folder
 game-folder = Game folder
 config-file = Config file
 debug-file = Debug file
-signal-search-url = Open singal searches
+signal-search-url = Open signal searches
 about = About
 
 
@@ -61,6 +61,7 @@ apply-patch = Apply patch
 disable-telemetry = Disable telemetry
 download-wine = Download wine
 create-prefix = Create prefix
+install-dxvk = Install DXVK
 update = Update
 download = Download
 predownload-update = Pre-download {$version} update ({$size})
