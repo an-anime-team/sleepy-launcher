@@ -1,3 +1,4 @@
+use std::path::Path;
 use std::process::Command;
 
 use anime_launcher_sdk::anime_game_core::installer::downloader::Downloader;
@@ -42,6 +43,26 @@ pub fn get_uri() -> String {
     }
 }
 
+fn get_img_hash_from_uri(uri: &str) -> String {
+    uri.split('/')
+        .next_back()
+        .unwrap_or_default()
+        .split('_')
+        .next()
+        .unwrap_or_default()
+        .to_owned()
+}
+
+fn get_img_uri_from_json_value(
+    backgrounds_info: Option<&serde_json::Value>,
+    key: &str
+) -> anyhow::Result<String> {
+    Ok(backgrounds_info
+        .and_then(|background| background[key]["url"].as_str())
+        .ok_or_else(|| anyhow::anyhow!("Failed to get background picture url"))?
+        .to_string())
+}
+
 #[cached::proc_macro::cached(result)]
 pub fn get_background_info() -> anyhow::Result<ComposedBackground> {
     let json =
@@ -60,14 +81,8 @@ pub fn get_background_info() -> anyhow::Result<ComposedBackground> {
         .as_array()
         .and_then(|backgrounds| backgrounds.iter().next());
 
-    let background_uri = backgrounds_info
-        .and_then(|background| background["background"]["url"].as_str())
-        .ok_or_else(|| anyhow::anyhow!("Failed to get background picture url"))?
-        .to_string();
-    let overlay_uri = backgrounds_info
-        .and_then(|background| background["theme"]["url"].as_str())
-        .ok_or_else(|| anyhow::anyhow!("Failed to get overlay picture url"))?
-        .to_string();
+    let background_uri = get_img_uri_from_json_value(backgrounds_info, "background")?;
+    let overlay_uri = get_img_uri_from_json_value(backgrounds_info, "theme")?;
 
     let background_hash = get_img_hash_from_uri(&background_uri);
     let overlay_hash = get_img_hash_from_uri(&overlay_uri);
@@ -84,14 +99,31 @@ pub fn get_background_info() -> anyhow::Result<ComposedBackground> {
     })
 }
 
-fn get_img_hash_from_uri(uri: &str) -> String {
-    uri.split('/')
-        .next_back()
-        .unwrap_or_default()
-        .split('_')
-        .next()
-        .unwrap_or_default()
-        .to_owned()
+/// Returns true if image exists and is correct
+fn check_img_file(path: &Path, expected_hash: &str) -> anyhow::Result<bool> {
+    if path.exists() {
+        let hash = Md5::digest(std::fs::read(path)?);
+
+        if format!("{hash:x}").eq_ignore_ascii_case(expected_hash) {
+            tracing::debug!("Background picture {path:?} already downloaded. Skipping");
+
+            return Ok(true);
+        }
+    }
+
+    Ok(false)
+}
+
+fn download_img_file(path: &Path, uri: &str) -> anyhow::Result<()> {
+    let mut downloader = Downloader::new(uri)?;
+
+    downloader.continue_downloading = false;
+
+    if let Err(err) = downloader.download(path, |_, _| {}) {
+        anyhow::bail!(err);
+    }
+
+    Ok(())
 }
 
 pub fn download_background() -> anyhow::Result<()> {
@@ -99,49 +131,12 @@ pub fn download_background() -> anyhow::Result<()> {
 
     let info = get_background_info()?;
 
-    let mut download_image = true;
-    let mut download_overlay = true;
-
-    if crate::BACKGROUND_FILE.exists() {
-        let hash = Md5::digest(std::fs::read(crate::BACKGROUND_FILE.as_path())?);
-        let info = &info.background;
-
-        if format!("{:x}", hash).to_lowercase() == info.hash {
-            tracing::debug!("Background picture is already downloaded. Skipping");
-
-            download_image = false;
-        }
+    if !check_img_file(&crate::BACKGROUND_FILE, &info.background.hash)? {
+        download_img_file(&crate::BACKGROUND_FILE, &info.background.uri)?;
     }
 
-    if crate::BACKGROUND_OVERLAY_FILE.exists() {
-        let hash = Md5::digest(std::fs::read(crate::BACKGROUND_OVERLAY_FILE.as_path())?);
-        let info = &info.overlay;
-
-        if format!("{:x}", hash).to_lowercase() == info.hash {
-            tracing::debug!("Background picture is already downloaded. Skipping");
-
-            download_overlay = false;
-        }
-    }
-
-    if download_image {
-        let mut downloader = Downloader::new(&info.background.uri)?;
-
-        downloader.continue_downloading = false;
-
-        if let Err(err) = downloader.download(crate::BACKGROUND_FILE.as_path(), |_, _| {}) {
-            anyhow::bail!(err);
-        }
-    }
-
-    if download_overlay {
-        let mut downloader = Downloader::new(&info.overlay.uri)?;
-
-        downloader.continue_downloading = false;
-
-        if let Err(err) = downloader.download(crate::BACKGROUND_OVERLAY_FILE.as_path(), |_, _| {}) {
-            anyhow::bail!(err);
-        }
+    if !check_img_file(&crate::BACKGROUND_OVERLAY_FILE, &info.overlay.hash)? {
+        download_img_file(&crate::BACKGROUND_OVERLAY_FILE, &info.overlay.uri)?;
     }
 
     Command::new("magick")
