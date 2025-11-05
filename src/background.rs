@@ -131,33 +131,42 @@ pub fn download_background() -> anyhow::Result<()> {
 
     let info = get_background_info()?;
 
+    let mut regenerate_image = false;
+
     if !check_img_file(&crate::BACKGROUND_FILE, &info.background.hash)? {
         download_img_file(&crate::BACKGROUND_FILE, &info.background.uri)?;
+        regenerate_image = true;
     }
 
     if !check_img_file(&crate::BACKGROUND_OVERLAY_FILE, &info.overlay.hash)? {
         download_img_file(&crate::BACKGROUND_OVERLAY_FILE, &info.overlay.uri)?;
+        regenerate_image = true;
     }
 
-    Command::new("magick")
-        .arg(crate::BACKGROUND_FILE.as_path())
-        .arg(crate::BACKGROUND_OVERLAY_FILE.as_path())
-        .args(["-layers", "flatten"])
-        .arg(format!(
-            "PNG:{}",
-            crate::PROCESSED_BACKGROUND_FILE.display()
-        ))
-        .spawn()?
-        .wait()?;
+    if regenerate_image {
+        Command::new("magick")
+            .arg(crate::BACKGROUND_FILE.as_path())
+            .arg(crate::BACKGROUND_OVERLAY_FILE.as_path())
+            .args(["-layers", "flatten"])
+            .arg(format!(
+                "PNG:{}",
+                crate::PROCESSED_BACKGROUND_FILE.display()
+            ))
+            .spawn()?
+            .wait()?;
 
-    // If it failed to re-code the file - just copy it
-    // Will happen with HSR because devs apparently named
-    // their background image ".webp" while it's JPEG
-    if !crate::PROCESSED_BACKGROUND_FILE.exists() {
-        std::fs::copy(
-            crate::BACKGROUND_FILE.as_path(),
-            crate::PROCESSED_BACKGROUND_FILE.as_path()
-        )?;
+        // If it failed to re-code the file - just copy it
+        // Will happen with HSR because devs apparently named
+        // their background image ".webp" while it's JPEG
+        if !crate::PROCESSED_BACKGROUND_FILE.exists() {
+            std::fs::copy(
+                crate::BACKGROUND_FILE.as_path(),
+                crate::PROCESSED_BACKGROUND_FILE.as_path()
+            )?;
+        }
+    }
+    else {
+        tracing::debug!("Not re-generating the background image, already latest")
     }
 
     Ok(())
