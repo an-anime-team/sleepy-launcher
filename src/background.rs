@@ -2,13 +2,12 @@ use std::process::Command;
 
 use anime_launcher_sdk::anime_game_core::installer::downloader::Downloader;
 use anime_launcher_sdk::anime_game_core::minreq;
-
-use md5::{Md5, Digest};
+use md5::{Digest, Md5};
 
 #[derive(Debug, Clone)]
 pub struct ComposedBackground {
     pub background: Background,
-    pub overlay: Background,
+    pub overlay: Background
 }
 
 #[derive(Debug, Clone)]
@@ -21,11 +20,23 @@ pub fn get_uri() -> String {
     let lang = crate::i18n::get_lang();
 
     if lang.language == unic_langid::langid!("zh-cn").language {
-        concat!("https://hyp-api.", "mi", "ho", "yo", ".com/hyp/hyp-connect/api/getAllGameBasicInfo?launcher_id=jGHBHlcOq1").to_owned()
+        concat!(
+            "https://hyp-api.",
+            "mi",
+            "ho",
+            "yo",
+            ".com/hyp/hyp-connect/api/getAllGameBasicInfo?launcher_id=jGHBHlcOq1"
+        )
+        .to_owned()
     }
-
     else {
-        let uri = concat!("https://sg-hyp-api.", "ho", "yo", "verse", ".com/hyp/hyp-connect/api/getAllGameBasicInfo?launcher_id=VYTpXlbWo8&language=");
+        let uri = concat!(
+            "https://sg-hyp-api.",
+            "ho",
+            "yo",
+            "verse",
+            ".com/hyp/hyp-connect/api/getAllGameBasicInfo?launcher_id=VYTpXlbWo8&language="
+        );
 
         uri.to_owned() + &crate::i18n::format_lang(lang)
     }
@@ -33,7 +44,8 @@ pub fn get_uri() -> String {
 
 #[cached::proc_macro::cached(result)]
 pub fn get_background_info() -> anyhow::Result<ComposedBackground> {
-    let json = serde_json::from_slice::<serde_json::Value>(minreq::get(get_uri()).send()?.as_bytes())?;
+    let json =
+        serde_json::from_slice::<serde_json::Value>(minreq::get(get_uri()).send()?.as_bytes())?;
 
     let backgrounds_info = json["data"]["game_info_list"].as_array()
         .ok_or_else(|| anyhow::anyhow!("Failed to list games in the backgrounds API"))?
@@ -60,20 +72,21 @@ pub fn get_background_info() -> anyhow::Result<ComposedBackground> {
     let background_hash = get_img_hash_from_uri(&background_uri);
     let overlay_hash = get_img_hash_from_uri(&overlay_uri);
 
-    Ok(
-        ComposedBackground { background: Background {
+    Ok(ComposedBackground {
+        background: Background {
             uri: background_uri,
             hash: background_hash
-        }, overlay: Background {
+        },
+        overlay: Background {
             uri: overlay_uri,
             hash: overlay_hash
-        } }
-    )
+        }
+    })
 }
 
 fn get_img_hash_from_uri(uri: &str) -> String {
-     uri.split('/')
-        .last()
+    uri.split('/')
+        .next_back()
         .unwrap_or_default()
         .split('_')
         .next()
@@ -135,7 +148,10 @@ pub fn download_background() -> anyhow::Result<()> {
         .arg(crate::BACKGROUND_FILE.as_path())
         .arg(crate::BACKGROUND_OVERLAY_FILE.as_path())
         .args(["-layers", "flatten"])
-        .arg(format!("PNG:{}", crate::PROCESSED_BACKGROUND_FILE.display()))
+        .arg(format!(
+            "PNG:{}",
+            crate::PROCESSED_BACKGROUND_FILE.display()
+        ))
         .spawn()?
         .wait()?;
 
@@ -143,7 +159,10 @@ pub fn download_background() -> anyhow::Result<()> {
     // Will happen with HSR because devs apparently named
     // their background image ".webp" while it's JPEG
     if !crate::PROCESSED_BACKGROUND_FILE.exists() {
-        std::fs::copy(crate::BACKGROUND_FILE.as_path(), crate::PROCESSED_BACKGROUND_FILE.as_path())?;
+        std::fs::copy(
+            crate::BACKGROUND_FILE.as_path(),
+            crate::PROCESSED_BACKGROUND_FILE.as_path()
+        )?;
     }
 
     Ok(())
