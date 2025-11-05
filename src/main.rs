@@ -61,6 +61,9 @@ lazy_static::lazy_static! {
     /// Path to `background` file. Standard is `$HOME/.local/share/anime-game-launcher/background`
     pub static ref BACKGROUND_FILE: PathBuf = LAUNCHER_FOLDER.join("background");
 
+    /// Path to `background` file. Standard is `$HOME/.local/share/anime-game-launcher/background-overlay`
+    pub static ref BACKGROUND_OVERLAY_FILE: PathBuf = LAUNCHER_FOLDER.join("background-overlay");
+
     /// Path to the processed `background` file. Standard is `$HOME/.cache/anime-game-launcher/background`
     pub static ref PROCESSED_BACKGROUND_FILE: PathBuf = CACHE_FOLDER.join("background");
 
