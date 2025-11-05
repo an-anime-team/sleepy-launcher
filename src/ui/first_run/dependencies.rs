@@ -102,7 +102,7 @@ impl SimpleAsyncComponent for DependenciesApp {
                         },
 
                         gtk::Entry {
-                            set_text: "sudo dnf install git p7zip imagemagick",
+                            set_text: "sudo dnf install git p7zip ImageMagick",
                             set_editable: false
                         }
                     },
