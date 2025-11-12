@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added support for layered launcher backgrounds (background separate from text)
+
+### Fixed
+
+- Fixed size of images in the "Appearance" preferences section (most noticeable on flatpak)
+- Updated default window size in classic appearance option to match the other launchers
+
+### Changed
+
+- Removed dwebp dependency, replaced by imagemagick
+
 ## [1.5.0] - 22.09.2025
 
 ### Added

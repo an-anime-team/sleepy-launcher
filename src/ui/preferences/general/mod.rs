@@ -86,8 +86,9 @@ impl SimpleAsyncComponent for GeneralApp {
                             #[watch]
                             set_active: model.style == LauncherStyle::Modern,
 
-                            gtk::Image {
-                                set_resource: Some(&format!("{APP_RESOURCE_PATH}/images/modern.svg"))
+                            gtk::Picture {
+                                set_resource: Some(&format!("{APP_RESOURCE_PATH}/images/modern.svg")),
+                                set_content_fit: gtk::ContentFit::ScaleDown
                             },
 
                             connect_clicked => GeneralAppMsg::UpdateLauncherStyle(LauncherStyle::Modern)
@@ -112,8 +113,9 @@ impl SimpleAsyncComponent for GeneralApp {
                             #[watch]
                             set_active: model.style == LauncherStyle::Classic,
 
-                            gtk::Image {
-                                set_resource: Some(&format!("{APP_RESOURCE_PATH}/images/classic.svg"))
+                            gtk::Picture {
+                                set_resource: Some(&format!("{APP_RESOURCE_PATH}/images/classic.svg")),
+                                set_content_fit: gtk::ContentFit::ScaleDown
                             },
 
                             connect_clicked => GeneralAppMsg::UpdateLauncherStyle(LauncherStyle::Classic)

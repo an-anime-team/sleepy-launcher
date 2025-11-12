@@ -94,7 +94,22 @@ impl SimpleComponent for AboutDialog {
                 "<p>Added</p>",
 
                 "<ul>",
-                    "<li>Added DXVK installation check for broken dxvk installations</li>",
+                    "<li>Added support for layered launcher backgrounds (background separate from text)</li>",
+                "</ul>",
+
+
+                "<p>Fixed</p>",
+
+                "<ul>",
+                    "<li>Fixed size of images in the \"Appearance\" preferences section (most noticeable on flatpak)</li>",
+                    "<li>Updated default window size in classic appearance option to match the other launchers</li>",
+                "</ul>",
+
+
+                "<p>Changed</p>",
+
+                "<ul>",
+                    "<li>Removed dwebp dependency, replaced by imagemagick</li>",
                 "</ul>"
             ].join("\n"),
 
