@@ -1,0 +1,63 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<component type="desktop-application">
+  <id>moe.launcher.sleepy-launcher</id>
+  <name>Sleepy Launcher</name>
+  <summary>Play Zenless Zone Zero on Linux</summary>
+  <summary xml:lang="de">Spielen Sie Zenless Zone Zero auf Linux</summary>
+  <summary xml:lang="ru">Играйте в Zenless Zone Zero на Linux</summary>
+  <summary xml:lang="es">¡Juega a Zenless Zone Zero en Linux</summary>
+  <summary xml:lang="it">Gioca a Zenless Zone Zero su Linux</summary>
+  <summary xml:lang="hu">Játssz Zenless Zone Zero-t Linux-on</summary>
+  <description>
+    <p>Sleepy Launcher is an unofficial launcher for Zenless Zone Zero that handles setting up Wine and installing the game on Linux.</p>
+    <p xml:lang="de">Sleepy Launcher ist ein inoffizieller Launcher für Zenless Zone Zero, der die Einrichtung von Wine und die Installation des Spiels unter Linux übernimmt.</p>
+    <p xml:lang="ru">Sleepy Launcher - это неофициальный лаунчер для Zenless Zone Zero, который настраивает Wine и устанавливает игру на Linux.</p>
+    <p xml:lang="es">Sleepy Launcher es un launcher no oficial para Zenless Zone Zero que se encarga de configurar Wine e instalar el juego en Linux.</p>
+    <p xml:lang="it">Sleepy Launcher è un launcher non ufficiale per Zenless Zone Zero che gestisce la configurazione di Wine e l'installazione del gioco su Linux.</p>
+    <p xml:lang="hu">A Sleepy Launcher egy nem hivatalos indítóprogram a Zenless Zone Zero játékhoz, amely kezeli a Wine beállítását és a játék telepítését Linuxon.</p>
+  </description>
+  <developer id="moe.launcher">
+    <name>An Anime Team</name>
+  </developer>
+  <screenshots>
+    <screenshot type="default">
+        <image>https://raw.githubusercontent.com/an-anime-team/sleepy-launcher/369aca7e9276bc8fed82d0d7e30d0604e2200d04/repository/main-classic.png</image>
+        <caption>Main launcher window (Classic look)</caption>
+    </screenshot>
+    <screenshot>
+        <image>https://raw.githubusercontent.com/an-anime-team/sleepy-launcher/369aca7e9276bc8fed82d0d7e30d0604e2200d04/repository/settings-classic.png</image>
+        <caption>Launcher settings (Classic look)</caption>
+    </screenshot>
+    <screenshot>
+        <image>https://raw.githubusercontent.com/an-anime-team/sleepy-launcher/369aca7e9276bc8fed82d0d7e30d0604e2200d04/repository/main-modern.png</image>
+        <caption>Main launcher window (Modern look)</caption>
+    </screenshot>
+    <screenshot>
+        <image>https://raw.githubusercontent.com/an-anime-team/sleepy-launcher/369aca7e9276bc8fed82d0d7e30d0604e2200d04/repository/settings-modern.png</image>
+        <caption>Launcher settings (Modern look)</caption>
+    </screenshot>
+  </screenshots>
+  <launchable type="desktop-id">moe.launcher.sleepy-launcher.desktop</launchable>
+  <url type="homepage">https://github.com/an-anime-team/sleepy-launcher</url>
+  <url type="bugtracker">https://github.com/an-anime-team/sleepy-launcher/issues</url>
+  <project_license>GPL-3.0-or-later</project_license>
+  <metadata_license>CC0-1.0</metadata_license>
+  <categories>
+    <category>Game</category>
+  </categories>
+  <content_rating type="oars-1.1" />
+  <releases>
+    <release version="1.6.0" date="2025-11-12">
+      <description>
+        <p>Added support for layered launcher backgrounds (background separate from text)</p>
+        <p>Fixed size of images in the "Appearance" preferences section (most noticeable on flatpak)</p>
+        <p>Updated default window size in classic appearance option to match the other launchers</p>
+        <p>Removed dwebp dependency, replaced by imagemagick</p>
+      </description>
+    </release>
+  </releases>
+  <branding>
+    <color type="primary" scheme_preference="light">#b8a4d4</color>
+    <color type="primary" scheme_preference="dark">#3d2b5c</color>
+  </branding>
+</component>
