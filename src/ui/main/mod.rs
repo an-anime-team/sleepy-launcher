@@ -142,7 +142,7 @@ impl SimpleComponent for App {
                 },
                 match model.style {
                     LauncherStyle::Modern => 600,
-                    LauncherStyle::Classic => 628
+                    LauncherStyle::Classic => 648
                 }
             ),
 
