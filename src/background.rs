@@ -282,15 +282,16 @@ pub fn download_background() -> anyhow::Result<()> {
                 )
                 .context("Copying background overlay file")?;
             }
-            else {
-                // Remove the overlay file if it's normal variant
-                // Ignore error, if file is already missing for example
-                let _ = std::fs::remove_file(&*crate::PROCESSED_BACKGROUND_OVERLAY_FILE);
-            }
         }
         else {
             tracing::info!("GTK pixbuf WebP loader is not installed, converting images to PNG");
             info.convert_and_copy()?;
+        }
+
+        if !matches!(info, BackgroundSpec::Video { .. }) {
+            // Remove the overlay file if it's normal variant
+            // Ignore error, if file is already missing for example
+            let _ = std::fs::remove_file(&*crate::PROCESSED_BACKGROUND_OVERLAY_FILE);
         }
     }
     else {
