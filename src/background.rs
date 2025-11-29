@@ -6,15 +6,112 @@ use anime_launcher_sdk::anime_game_core::minreq;
 use md5::{Digest, Md5};
 
 #[derive(Debug, Clone)]
-pub struct ComposedBackground {
-    pub background: Background,
-    pub overlay: Option<Background>
+pub enum BackgroundSpec {
+    Normal {
+        background: Background
+    },
+    Video {
+        background: Background,
+        video: Background,
+        overlay: Background
+    }
+}
+
+impl BackgroundSpec {
+    fn from_json(value: &serde_json::Value) -> anyhow::Result<Self> {
+        let backgrounds_info =
+            value["data"]["game_info_list"]
+                .as_array()
+                .ok_or_else(|| anyhow::anyhow!("Failed to list games in the backgrounds API"))?
+                .iter()
+                .find(|game| match game["game"]["biz"].as_str() {
+                    Some(biz) => biz.starts_with("nap_"),
+                    _ => false
+                })
+                .ok_or_else(|| anyhow::anyhow!("Failed to find the game in the backgrounds API"))?
+                ["backgrounds"]
+                .as_array()
+                .and_then(|backgrounds| backgrounds.iter().next_back());
+
+        let background_uri = get_img_uri_from_json_value(backgrounds_info, "background")?;
+        let background = Background::from_uri(background_uri);
+
+        if backgrounds_info.and_then(|bginfo| bginfo["type"].as_str())
+            == Some("BACKGROUND_TYPE_VIDEO")
+        {
+            let video_uri = get_img_uri_from_json_value(backgrounds_info, "video")?;
+            let video = Background::from_uri(video_uri);
+
+            let overlay_uri = get_img_uri_from_json_value(backgrounds_info, "theme")?;
+            let overlay = Background::from_uri(overlay_uri);
+
+            Ok(Self::Video {
+                background,
+                video,
+                overlay
+            })
+        }
+        else {
+            Ok(Self::Normal {
+                background
+            })
+        }
+    }
+
+    fn background(&self) -> &Background {
+        match self {
+            Self::Normal {
+                background
+            }
+            | Self::Video {
+                background, ..
+            } => background
+        }
+    }
+
+    /// Return value indicates whether the background needs to be re-generated
+    fn download(&self) -> anyhow::Result<bool> {
+        let mut regenerate_image = false;
+
+        regenerate_image |= self.background().download(&crate::BACKGROUND_FILE)?;
+
+        if let Self::Video {
+            video,
+            overlay,
+            ..
+        } = self
+        {
+            regenerate_image |= overlay.download(&crate::BACKGROUND_OVERLAY_FILE)?;
+            regenerate_image |= video.download(&crate::BACKGROUND_VIDEO_FILE)?;
+        }
+
+        Ok(regenerate_image)
+    }
 }
 
 #[derive(Debug, Clone)]
 pub struct Background {
     pub uri: String,
     pub hash: String
+}
+
+impl Background {
+    fn from_uri(uri: String) -> Self {
+        let hash = get_img_hash_from_uri(&uri);
+        Self {
+            uri,
+            hash
+        }
+    }
+
+    /// Return value indicates whether the background needs to be re-generated
+    fn download(&self, path: &Path) -> anyhow::Result<bool> {
+        if !check_img_file(path, &self.hash)? {
+            download_img_file(path, &self.uri)?;
+            return Ok(true);
+        }
+        Ok(false)
+    }
 }
 
 pub fn get_uri() -> String {
@@ -79,46 +176,11 @@ fn gtk_webp_image_supported() -> bool {
 }
 
 #[cached::proc_macro::cached(result)]
-pub fn get_background_info() -> anyhow::Result<ComposedBackground> {
+pub fn get_background_info() -> anyhow::Result<BackgroundSpec> {
     let json =
         serde_json::from_slice::<serde_json::Value>(minreq::get(get_uri()).send()?.as_bytes())?;
 
-    let backgrounds_info = json["data"]["game_info_list"].as_array()
-        .ok_or_else(|| anyhow::anyhow!("Failed to list games in the backgrounds API"))?
-        .iter()
-        .find(|game| {
-            match game["game"]["biz"].as_str() {
-                Some(biz) => biz.starts_with("nap_"),
-                _ => false
-            }
-        })
-        .ok_or_else(|| anyhow::anyhow!("Failed to find the game in the backgrounds API"))?["backgrounds"]
-        .as_array()
-        .and_then(|backgrounds| backgrounds.iter().next());
-
-    let background_uri = get_img_uri_from_json_value(backgrounds_info, "background")?;
-    let background_hash = get_img_hash_from_uri(&background_uri);
-
-    let overlay_bg =
-        if backgrounds_info.and_then(|v| v["type"].as_str()) == Some("BACKGROUND_TYPE_VIDEO") {
-            let overlay_uri = get_img_uri_from_json_value(backgrounds_info, "theme")?;
-            let overlay_hash = get_img_hash_from_uri(&overlay_uri);
-            Some(Background {
-                uri: overlay_uri,
-                hash: overlay_hash
-            })
-        }
-        else {
-            None
-        };
-
-    Ok(ComposedBackground {
-        background: Background {
-            uri: background_uri,
-            hash: background_hash
-        },
-        overlay: overlay_bg
-    })
+    BackgroundSpec::from_json(&json)
 }
 
 /// Returns true if image exists and is correct
@@ -153,22 +215,10 @@ pub fn download_background() -> anyhow::Result<()> {
 
     let info = get_background_info()?;
 
-    let mut regenerate_image = false;
-
-    if !check_img_file(&crate::BACKGROUND_FILE, &info.background.hash)? {
-        download_img_file(&crate::BACKGROUND_FILE, &info.background.uri)?;
-        regenerate_image = true;
-    }
-
-    if let Some(overlay_bg) = &info.overlay {
-        if !check_img_file(&crate::BACKGROUND_OVERLAY_FILE, &overlay_bg.hash)? {
-            download_img_file(&crate::BACKGROUND_OVERLAY_FILE, &overlay_bg.uri)?;
-            regenerate_image = true;
-        }
-    }
+    let regenerate_image = info.download()?;
 
     if regenerate_image {
-        if info.overlay.is_some() {
+        if matches!(info, BackgroundSpec::Video { .. }) {
             Command::new("magick")
                 .arg(crate::BACKGROUND_FILE.as_path())
                 .arg(crate::BACKGROUND_OVERLAY_FILE.as_path())

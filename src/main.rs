@@ -67,6 +67,9 @@ lazy_static::lazy_static! {
     /// Path to the processed `background` file. Standard is `$HOME/.cache/anime-game-launcher/background`
     pub static ref PROCESSED_BACKGROUND_FILE: PathBuf = CACHE_FOLDER.join("background");
 
+    /// Path to the processed `background-video` file. Standard is `$HOME/.cache/anime-game-launcher/background-video`
+    pub static ref BACKGROUND_VIDEO_FILE: PathBuf = CACHE_FOLDER.join("background-video");
+
     /// Path to `.keep-background` file. Used to mark launcher that it shouldn't update background picture
     /// 
     /// Standard is `$HOME/.local/share/anime-game-launcher/.keep-background`
