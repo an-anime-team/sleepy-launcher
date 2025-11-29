@@ -63,6 +63,21 @@ fn get_img_uri_from_json_value(
         .to_string())
 }
 
+#[cached::proc_macro::once()]
+fn gtk_webp_image_supported() -> bool {
+    let supported_pixbuf_formats = gtk::gdk_pixbuf::Pixbuf::formats();
+    supported_pixbuf_formats.into_iter().any(|format| {
+        format
+            .name()
+            .map(|name| name.eq_ignore_ascii_case("webp"))
+            .unwrap_or(false)
+            || format
+                .extensions()
+                .iter()
+                .any(|ext| ext.eq_ignore_ascii_case("webp"))
+    })
+}
+
 #[cached::proc_macro::cached(result)]
 pub fn get_background_info() -> anyhow::Result<ComposedBackground> {
     let json =
