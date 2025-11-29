@@ -2,7 +2,9 @@ use std::path::Path;
 use std::process::Command;
 
 use anime_launcher_sdk::anime_game_core::installer::downloader::Downloader;
+use anime_launcher_sdk::is_available;
 use anime_launcher_sdk::anime_game_core::minreq;
+use anyhow::Context;
 use md5::{Digest, Md5};
 
 #[derive(Debug, Clone)]
@@ -86,6 +88,25 @@ impl BackgroundSpec {
         }
 
         Ok(regenerate_image)
+    }
+
+    fn convert_and_copy(&self) -> anyhow::Result<()> {
+        finalize_file(
+            self.background(),
+            &crate::BACKGROUND_FILE,
+            &crate::PROCESSED_BACKGROUND_FILE
+        )?;
+        if let Self::Video {
+            overlay, ..
+        } = self
+        {
+            finalize_file(
+                overlay,
+                &crate::BACKGROUND_OVERLAY_FILE,
+                &crate::PROCESSED_BACKGROUND_OVERLAY_FILE
+            )?;
+        }
+        Ok(())
     }
 }
 
@@ -210,6 +231,39 @@ fn download_img_file(path: &Path, uri: &str) -> anyhow::Result<()> {
     Ok(())
 }
 
+fn convert_image(from: &Path, to: &Path) -> anyhow::Result<()> {
+    if is_available("dwebp") {
+        Command::new("dwebp")
+            .arg(from)
+            .arg("-o")
+            .arg(to)
+            .spawn()?
+            .wait()?;
+    }
+    else if is_available("magick") {
+        Command::new("magick").arg(from).arg(to).spawn()?.wait()?;
+    }
+    else {
+        return Err(anyhow::anyhow!("No command to convert the image from webp"));
+    }
+    Ok(())
+}
+
+fn finalize_file(bg_info: &Background, from: &Path, to: &Path) -> anyhow::Result<()> {
+    if bg_info.uri.ends_with(".webp") {
+        convert_image(from, to).context(format!("Converting image {to:?}"))?;
+    }
+
+    // If it failed to re-code the file - just copy it
+    // Will happen with HSR because devs apparently named
+    // their background image ".webp" while it's JPEG
+    if !to.exists() {
+        std::fs::copy(from, to).context(format!("Copying {to:?}"))?;
+    }
+
+    Ok(())
+}
+
 pub fn download_background() -> anyhow::Result<()> {
     tracing::debug!("Downloading background picture");
 
@@ -218,37 +272,25 @@ pub fn download_background() -> anyhow::Result<()> {
     let regenerate_image = info.download()?;
 
     if regenerate_image {
-        if matches!(info, BackgroundSpec::Video { .. }) {
-            Command::new("magick")
-                .arg(crate::BACKGROUND_FILE.as_path())
-                .arg(crate::BACKGROUND_OVERLAY_FILE.as_path())
-                .args(["-layers", "flatten"])
-                .arg(format!(
-                    "PNG:{}",
-                    crate::PROCESSED_BACKGROUND_FILE.display()
-                ))
-                .spawn()?
-                .wait()?;
+        if gtk_webp_image_supported() {
+            std::fs::copy(&*crate::BACKGROUND_FILE, &*crate::PROCESSED_BACKGROUND_FILE)
+                .context("Copying background file")?;
+            if matches!(info, BackgroundSpec::Video { .. }) {
+                std::fs::copy(
+                    &*crate::BACKGROUND_OVERLAY_FILE,
+                    &*crate::PROCESSED_BACKGROUND_OVERLAY_FILE
+                )
+                .context("Copying background overlay file")?;
+            }
+            else {
+                // Remove the overlay file if it's normal variant
+                // Ignore error, if file is already missing for example
+                let _ = std::fs::remove_file(&*crate::PROCESSED_BACKGROUND_OVERLAY_FILE);
+            }
         }
         else {
-            Command::new("magick")
-                .arg(crate::BACKGROUND_FILE.as_path())
-                .arg(format!(
-                    "PNG:{}",
-                    crate::PROCESSED_BACKGROUND_FILE.display()
-                ))
-                .spawn()?
-                .wait()?;
-        }
-
-        // If it failed to re-code the file - just copy it
-        // Will happen with HSR because devs apparently named
-        // their background image ".webp" while it's JPEG
-        if !crate::PROCESSED_BACKGROUND_FILE.exists() {
-            std::fs::copy(
-                crate::BACKGROUND_FILE.as_path(),
-                crate::PROCESSED_BACKGROUND_FILE.as_path()
-            )?;
+            tracing::info!("GTK pixbuf WebP loader is not installed, converting images to PNG");
+            info.convert_and_copy()?;
         }
     }
     else {
