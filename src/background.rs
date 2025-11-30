@@ -8,7 +8,7 @@ use md5::{Digest, Md5};
 #[derive(Debug, Clone)]
 pub struct ComposedBackground {
     pub background: Background,
-    pub overlay: Background
+    pub overlay: Option<Background>
 }
 
 #[derive(Debug, Clone)]
@@ -82,20 +82,27 @@ pub fn get_background_info() -> anyhow::Result<ComposedBackground> {
         .and_then(|backgrounds| backgrounds.iter().next());
 
     let background_uri = get_img_uri_from_json_value(backgrounds_info, "background")?;
-    let overlay_uri = get_img_uri_from_json_value(backgrounds_info, "theme")?;
-
     let background_hash = get_img_hash_from_uri(&background_uri);
-    let overlay_hash = get_img_hash_from_uri(&overlay_uri);
+
+    let overlay_bg =
+        if backgrounds_info.and_then(|v| v["type"].as_str()) == Some("BACKGROUND_TYPE_VIDEO") {
+            let overlay_uri = get_img_uri_from_json_value(backgrounds_info, "theme")?;
+            let overlay_hash = get_img_hash_from_uri(&overlay_uri);
+            Some(Background {
+                uri: overlay_uri,
+                hash: overlay_hash
+            })
+        }
+        else {
+            None
+        };
 
     Ok(ComposedBackground {
         background: Background {
             uri: background_uri,
             hash: background_hash
         },
-        overlay: Background {
-            uri: overlay_uri,
-            hash: overlay_hash
-        }
+        overlay: overlay_bg
     })
 }
 
@@ -138,22 +145,36 @@ pub fn download_background() -> anyhow::Result<()> {
         regenerate_image = true;
     }
 
-    if !check_img_file(&crate::BACKGROUND_OVERLAY_FILE, &info.overlay.hash)? {
-        download_img_file(&crate::BACKGROUND_OVERLAY_FILE, &info.overlay.uri)?;
-        regenerate_image = true;
+    if let Some(overlay_bg) = &info.overlay {
+        if !check_img_file(&crate::BACKGROUND_OVERLAY_FILE, &overlay_bg.hash)? {
+            download_img_file(&crate::BACKGROUND_OVERLAY_FILE, &overlay_bg.uri)?;
+            regenerate_image = true;
+        }
     }
 
     if regenerate_image {
-        Command::new("magick")
-            .arg(crate::BACKGROUND_FILE.as_path())
-            .arg(crate::BACKGROUND_OVERLAY_FILE.as_path())
-            .args(["-layers", "flatten"])
-            .arg(format!(
-                "PNG:{}",
-                crate::PROCESSED_BACKGROUND_FILE.display()
-            ))
-            .spawn()?
-            .wait()?;
+        if info.overlay.is_some() {
+            Command::new("magick")
+                .arg(crate::BACKGROUND_FILE.as_path())
+                .arg(crate::BACKGROUND_OVERLAY_FILE.as_path())
+                .args(["-layers", "flatten"])
+                .arg(format!(
+                    "PNG:{}",
+                    crate::PROCESSED_BACKGROUND_FILE.display()
+                ))
+                .spawn()?
+                .wait()?;
+        }
+        else {
+            Command::new("magick")
+                .arg(crate::BACKGROUND_FILE.as_path())
+                .arg(format!(
+                    "PNG:{}",
+                    crate::PROCESSED_BACKGROUND_FILE.display()
+                ))
+                .spawn()?
+                .wait()?;
+        }
 
         // If it failed to re-code the file - just copy it
         // Will happen with HSR because devs apparently named
