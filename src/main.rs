@@ -90,9 +90,9 @@ lazy_static::lazy_static! {
         }}
 
         window.classic-style {{
-            background: url(\"file://{}\");
-            background-repeat: no-repeat;
-            background-size: cover;
+            background: url(\"file://{}\"), url(\"file://{}\");
+            background-repeat: no-repeat, no-repeat;
+            background-size: cover, cover;
         }}
 
         window.classic-style progressbar {{
@@ -111,7 +111,10 @@ lazy_static::lazy_static! {
         .round-bin {{
             border-radius: 24px;
         }}
-    ", PROCESSED_BACKGROUND_FILE.to_string_lossy());
+        ",
+        PROCESSED_BACKGROUND_OVERLAY_FILE.to_string_lossy(),
+        PROCESSED_BACKGROUND_FILE.to_string_lossy()
+        );
 }
 
 fn main() -> anyhow::Result<()> {
