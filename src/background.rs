@@ -288,10 +288,11 @@ pub fn download_background() -> anyhow::Result<()> {
             info.convert_and_copy()?;
         }
 
-        if !matches!(info, BackgroundSpec::Video { .. }) {
-            // Remove the overlay file if it's normal variant
+        if matches!(info, BackgroundSpec::Normal { .. }) {
+            // Remove the overlay and video file if it's normal variant
             // Ignore error, if file is already missing for example
             let _ = std::fs::remove_file(&*crate::PROCESSED_BACKGROUND_OVERLAY_FILE);
+            let _ = std::fs::remove_file(&*crate::BACKGROUND_VIDEO_FILE);
         }
     }
     else {
