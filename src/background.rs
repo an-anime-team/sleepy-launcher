@@ -299,7 +299,7 @@ pub fn download_background() -> anyhow::Result<()> {
             }
         }
         else {
-            tracing::info!("GTK pixbuf WebP loader is not installed, converting images to PNG");
+            tracing::info!("WebP GDK Pixbuf Loader is not installed, converting images to PNG");
             info.convert_and_copy()?;
         }
 
