@@ -72,7 +72,7 @@ impl BackgroundSpec {
     }
 
     /// Return value indicates whether the background needs to be re-generated
-    fn download(&self) -> anyhow::Result<bool> {
+    fn download(&self, with_video: bool) -> anyhow::Result<bool> {
         let mut regenerate_image = false;
 
         regenerate_image |= self.background().download(&crate::BACKGROUND_FILE)?;
@@ -84,7 +84,9 @@ impl BackgroundSpec {
         } = self
         {
             regenerate_image |= overlay.download(&crate::BACKGROUND_OVERLAY_FILE)?;
-            regenerate_image |= video.download(&crate::BACKGROUND_VIDEO_FILE)?;
+            if with_video {
+                regenerate_image |= video.download(&crate::BACKGROUND_VIDEO_FILE)?;
+            }
         }
 
         Ok(regenerate_image)
@@ -282,7 +284,7 @@ pub fn download_background() -> anyhow::Result<()> {
 
     let info = get_background_info()?;
 
-    let regenerate_image = info.download()?;
+    let regenerate_image = info.download(true)?;
 
     if regenerate_image {
         if gtk_webp_image_supported() {
