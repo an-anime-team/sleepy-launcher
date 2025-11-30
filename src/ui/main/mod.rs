@@ -168,429 +168,471 @@ impl SimpleComponent for App {
 
             #[local_ref]
             toast_overlay -> adw::ToastOverlay {
-                gtk::Box {
-                    set_orientation: gtk::Orientation::Vertical,
-
-                    adw::HeaderBar {
-                        #[watch]
-                        set_css_classes: match model.style {
-                            LauncherStyle::Modern => &[""],
-                            LauncherStyle::Classic => &["flat"]
-                        },
-
-                        #[wrap(Some)]
-                        set_title_widget = &adw::WindowTitle {
-                            #[watch]
-                            set_title: match model.style {
-                                LauncherStyle::Modern => "Sleepy Launcher",
-                                LauncherStyle::Classic => ""
-                            }
-                        },
-
-                        pack_end = &gtk::MenuButton {
-                            set_icon_name: "open-menu-symbolic",
-                            set_menu_model: Some(&main_menu)
-                        }
-                    },
-
-                    adw::StatusPage {
-                        set_title: &tr!("loading-data"),
-                        set_icon_name: Some(APP_ID),
+                gtk::Overlay {
+                    #[name = "background_video"]
+                    gtk::Video::new() {
+                        set_hexpand: true,
                         set_vexpand: true,
-
+                        set_autoplay: true,
+                        set_loop: true,
+                        set_halign: gtk::Align::Start,
+                        set_valign: gtk::Align::Start,
                         #[watch]
-                        set_description: match &model.loading {
-                            Some(Some(desc)) => Some(desc),
-                            Some(None) | None => None
+                        set_visible: model.loading.is_none() && crate::BACKGROUND_VIDEO_FILE.exists(),
+                        connect_media_stream_notify: |vidwidget| {
+                            if let Some(media_stream) = vidwidget.media_stream() {
+                                vidwidget.set_visible(true);
+                                let vclone = vidwidget.clone();
+                                media_stream.connect_error_notify(move |mstream| {
+                                    if let Some(err) = mstream.error() {
+                                        tracing::error!("Background video stream error: {err}");
+                                        vclone.set_visible(false);
+                                    } else {
+                                        vclone.set_visible(true);
+                                    }
+                                });
+                            }
                         },
-
-                        #[watch]
-                        set_visible: model.loading.is_some()
+                        set_filename: Some(crate::BACKGROUND_VIDEO_FILE.as_path()),
                     },
 
-                    adw::PreferencesPage {
+                    #[name = "overlay_picture"]
+                    add_overlay = &gtk::Picture::for_filename(crate::PROCESSED_BACKGROUND_OVERLAY_FILE.as_path()) {
+                        set_content_fit: gtk::ContentFit::Cover,
+                        set_halign: gtk::Align::Start,
+                        set_valign: gtk::Align::Start,
                         #[watch]
-                        set_visible: model.loading.is_none(),
+                        set_visible: model.loading.is_none() && crate::PROCESSED_BACKGROUND_OVERLAY_FILE.exists(),
+                    },
 
-                        add = &adw::PreferencesGroup {
-                            set_margin_top: 48,
+                    #[name = "ui_contents"]
+                    add_overlay = &gtk::Box {
+                        set_orientation: gtk::Orientation::Vertical,
 
+                        adw::HeaderBar {
                             #[watch]
-                            set_visible: model.style == LauncherStyle::Modern,
-
-                            gtk::Picture {
-                                set_resource: Some(&format!("{APP_RESOURCE_PATH}/icons/hicolor/scalable/apps/{APP_ID}.png")),
-                                set_vexpand: true,
-                                set_content_fit: gtk::ContentFit::ScaleDown
+                            set_css_classes: match model.style {
+                                LauncherStyle::Modern => &[""],
+                                LauncherStyle::Classic => &["flat"]
                             },
 
-                            gtk::Label {
-                                set_label: "Sleepy Launcher",
-                                set_margin_top: 32,
-                                add_css_class: "title-1"
+                            #[wrap(Some)]
+                            set_title_widget = &adw::WindowTitle {
+                                #[watch]
+                                set_title: match model.style {
+                                    LauncherStyle::Modern => "Sleepy Launcher",
+                                    LauncherStyle::Classic => ""
+                                }
+                            },
+
+                            pack_end = &gtk::MenuButton {
+                                set_icon_name: "open-menu-symbolic",
+                                set_menu_model: Some(&main_menu)
                             }
                         },
 
-                        add = &adw::PreferencesGroup {
-                            #[watch]
-                            set_valign: match model.style {
-                                LauncherStyle::Modern => gtk::Align::Center,
-                                LauncherStyle::Classic => gtk::Align::End
-                            },
-
-                            #[watch]
-                            set_width_request: match model.style {
-                                LauncherStyle::Modern => -1,
-                                LauncherStyle::Classic => 800
-                            },
-
-                            #[watch]
-                            set_visible: model.downloading,
-
+                        adw::StatusPage {
+                            set_title: &tr!("loading-data"),
+                            set_icon_name: Some(APP_ID),
                             set_vexpand: true,
-                            set_margin_top: 48,
-                            set_margin_bottom: 48,
 
-                            add = model.progress_bar.widget(),
+                            #[watch]
+                            set_description: match &model.loading {
+                                Some(Some(desc)) => Some(desc),
+                                Some(None) | None => None
+                            },
+
+                            #[watch]
+                            set_visible: model.loading.is_some()
                         },
 
-                        add = &adw::PreferencesGroup {
+                        adw::PreferencesPage {
                             #[watch]
-                            set_valign: match model.style {
-                                LauncherStyle::Modern => gtk::Align::Center,
-                                LauncherStyle::Classic => gtk::Align::End
-                            },
+                            set_visible: model.loading.is_none(),
 
-                            #[watch]
-                            set_width_request: match model.style {
-                                LauncherStyle::Modern => -1,
-                                LauncherStyle::Classic => 800
-                            },
+                            add = &adw::PreferencesGroup {
+                                set_margin_top: 48,
 
-                            #[watch]
-                            set_visible: !model.downloading,
-
-                            #[watch]
-                            set_margin_bottom: match model.style {
-                                LauncherStyle::Modern => 48,
-                                LauncherStyle::Classic => 0
-                            },
-
-                            set_vexpand: true,
-
-                            gtk::Box {
                                 #[watch]
-                                set_halign: match model.style {
+                                set_visible: model.style == LauncherStyle::Modern,
+
+                                gtk::Picture {
+                                    set_resource: Some(&format!("{APP_RESOURCE_PATH}/icons/hicolor/scalable/apps/{APP_ID}.png")),
+                                    set_vexpand: true,
+                                    set_content_fit: gtk::ContentFit::ScaleDown
+                                },
+
+                                gtk::Label {
+                                    set_label: "Sleepy Launcher",
+                                    set_margin_top: 32,
+                                    add_css_class: "title-1"
+                                }
+                            },
+
+                            add = &adw::PreferencesGroup {
+                                #[watch]
+                                set_valign: match model.style {
                                     LauncherStyle::Modern => gtk::Align::Center,
                                     LauncherStyle::Classic => gtk::Align::End
                                 },
 
                                 #[watch]
-                                set_height_request: match model.style {
+                                set_width_request: match model.style {
                                     LauncherStyle::Modern => -1,
-                                    LauncherStyle::Classic => 40
+                                    LauncherStyle::Classic => 800
                                 },
 
-                                set_margin_top: 64,
-                                set_spacing: 8,
+                                #[watch]
+                                set_visible: model.downloading,
 
-                                adw::Bin {
-                                    set_css_classes: &["background", "round-bin"],
+                                set_vexpand: true,
+                                set_margin_top: 48,
+                                set_margin_bottom: 48,
 
-                                    gtk::Button {
-                                        set_width_request: 44,
+                                add = model.progress_bar.widget(),
+                            },
 
-                                        #[watch]
-                                        set_tooltip_text: Some(&tr!("predownload-update", {
-                                            "version" = match model.state.as_ref() {
-                                                Some(LauncherState::PredownloadAvailable { game, .. }) => game.latest().to_string(),
-                                                _ => String::from("?")
-                                            },
-
-                                            "size" = match model.state.as_ref() {
-                                                Some(LauncherState::PredownloadAvailable { game }) => {
-                                                    let size = game.downloaded_size().unwrap_or(0);
-
-                                                    prettify_bytes(size)
-                                                }
-
-                                                _ => String::from("?")
-                                            }
-                                        })),
-
-                                        #[watch]
-                                        set_visible: matches!(model.state.as_ref(), Some(LauncherState::PredownloadAvailable { .. })),
-
-                                        #[watch]
-                                        set_sensitive: match model.state.as_ref() {
-                                            Some(LauncherState::PredownloadAvailable { game }) => {
-                                                let config = Config::get().unwrap();
-                                                let temp = config.launcher.temp.unwrap_or_else(std::env::temp_dir);
-
-                                                let downloaded = temp.join(game.file_name().unwrap()).metadata()
-                                                    .map(|metadata| Some(metadata.len()) >= game.downloaded_size())
-                                                    .unwrap_or(false);
-
-                                                !downloaded
-                                            }
-
-                                            _ => false
-                                        },
-
-                                        #[watch]
-                                        set_css_classes: match model.state.as_ref() {
-                                            Some(LauncherState::PredownloadAvailable { game }) => {
-                                                let config = Config::get().unwrap();
-                                                let temp = config.launcher.temp.unwrap_or_else(std::env::temp_dir);
-
-                                                let downloaded = temp.join(game.file_name().unwrap()).metadata()
-                                                    .map(|metadata| Some(metadata.len()) >= game.downloaded_size())
-                                                    .unwrap_or(false);
-
-                                                if downloaded {
-                                                    &["success", "circular"]
-                                                } else {
-                                                    &["warning", "circular"]
-                                                }
-                                            }
-
-                                            _ => &["warning", "circular"]
-                                        },
-
-                                        set_icon_name: "document-save-symbolic",
-                                        set_hexpand: false,
-
-                                        connect_clicked => AppMsg::PredownloadUpdate
-                                    }
+                            add = &adw::PreferencesGroup {
+                                #[watch]
+                                set_valign: match model.style {
+                                    LauncherStyle::Modern => gtk::Align::Center,
+                                    LauncherStyle::Classic => gtk::Align::End
                                 },
 
-                                adw::Bin {
-                                    set_css_classes: &["background", "round-bin"],
+                                #[watch]
+                                set_width_request: match model.style {
+                                    LauncherStyle::Modern => -1,
+                                    LauncherStyle::Classic => 800
+                                },
+
+                                #[watch]
+                                set_visible: !model.downloading,
+
+                                #[watch]
+                                set_margin_bottom: match model.style {
+                                    LauncherStyle::Modern => 48,
+                                    LauncherStyle::Classic => 0
+                                },
+
+                                set_vexpand: true,
+
+                                gtk::Box {
+                                    #[watch]
+                                    set_halign: match model.style {
+                                        LauncherStyle::Modern => gtk::Align::Center,
+                                        LauncherStyle::Classic => gtk::Align::End
+                                    },
 
                                     #[watch]
-                                    set_visible: !model.kill_game_button,
+                                    set_height_request: match model.style {
+                                        LauncherStyle::Modern => -1,
+                                        LauncherStyle::Classic => 40
+                                    },
 
-                                    gtk::Button {
-                                        adw::ButtonContent {
-                                            #[watch]
-                                            set_icon_name: match &model.state {
-                                                Some(LauncherState::Launch) |
-                                                Some(LauncherState::PredownloadAvailable { .. }) => "media-playback-start-symbolic",
+                                    set_margin_top: 64,
+                                    set_spacing: 8,
 
-                                                Some(LauncherState::FolderMigrationRequired { .. }) |
-                                                Some(LauncherState::WineNotInstalled) |
-                                                Some(LauncherState::PrefixNotExists) |
-                                                Some(LauncherState::DxvkNotInstalled) => "document-save-symbolic",
+                                    adw::Bin {
+                                        set_css_classes: &["background", "round-bin"],
 
-                                                Some(LauncherState::GameUpdateAvailable(_)) |
-                                                Some(LauncherState::GameNotInstalled(_)) |
-                                                Some(LauncherState::VoiceUpdateAvailable(_)) |
-                                                Some(LauncherState::VoiceNotInstalled(_)) => "document-save-symbolic",
-
-                                                Some(LauncherState::TelemetryNotDisabled) => "security-high-symbolic",
-
-                                                Some(LauncherState::GameOutdated(_)) |
-                                                Some(LauncherState::VoiceOutdated(_)) |
-                                                None => "window-close-symbolic"
-                                            },
+                                        gtk::Button {
+                                            set_width_request: 44,
 
                                             #[watch]
-                                            set_label: &match &model.state {
-                                                Some(LauncherState::Launch) |
-                                                Some(LauncherState::PredownloadAvailable { .. }) => tr!("launch"),
-
-                                                Some(LauncherState::FolderMigrationRequired { .. }) => tr!("migrate-folders"),
-                                                Some(LauncherState::TelemetryNotDisabled) => tr!("disable-telemetry"),
-
-                                                Some(LauncherState::WineNotInstalled) => tr!("download-wine"),
-                                                Some(LauncherState::PrefixNotExists)  => tr!("create-prefix"),
-                                                Some(LauncherState::DxvkNotInstalled) => tr!("install-dxvk"),
-
-                                                Some(LauncherState::GameUpdateAvailable(diff)) |
-                                                Some(LauncherState::GameOutdated(diff)) |
-                                                Some(LauncherState::VoiceUpdateAvailable(diff)) |
-                                                Some(LauncherState::VoiceOutdated(diff)) => {
-                                                    match (Config::get(), diff.file_name()) {
-                                                        (Ok(config), Some(filename)) => {
-                                                            let temp = config.launcher.temp.unwrap_or_else(std::env::temp_dir);
-
-                                                            if temp.join(filename).exists() {
-                                                                tr!("resume")
-                                                            }
-
-                                                            else {
-                                                                tr!("update")
-                                                            }
-                                                        }
-
-                                                        _ => tr!("update")
-                                                    }
+                                            set_tooltip_text: Some(&tr!("predownload-update", {
+                                                "version" = match model.state.as_ref() {
+                                                    Some(LauncherState::PredownloadAvailable { game, .. }) => game.latest().to_string(),
+                                                    _ => String::from("?")
                                                 },
 
-                                                Some(LauncherState::GameNotInstalled(_)) |
-                                                Some(LauncherState::VoiceNotInstalled(_)) => tr!("download"),
+                                                "size" = match model.state.as_ref() {
+                                                    Some(LauncherState::PredownloadAvailable { game }) => {
+                                                        let size = game.downloaded_size().unwrap_or(0);
 
-                                                None => String::from("...")
-                                            }
-                                        },
+                                                        prettify_bytes(size)
+                                                    }
 
-                                        #[watch]
-                                        set_sensitive: !model.disabled_buttons && match &model.state {
-                                            Some(LauncherState::GameOutdated { .. }) |
-                                            Some(LauncherState::VoiceOutdated(_)) => false,
-
-                                            Some(_) => true,
-                                            None => false
-                                        },
-
-                                        #[watch]
-                                        set_css_classes: match &model.state {
-                                            Some(LauncherState::GameOutdated { .. }) |
-                                            Some(LauncherState::VoiceOutdated(_)) => &["warning", "pill"],
-
-                                            Some(_) => &["suggested-action", "pill"],
-                                            None => &["pill"]
-                                        },
-
-                                        #[watch]
-                                        set_tooltip_text: Some(&match &model.state {
-                                            Some(LauncherState::GameOutdated { .. }) |
-                                            Some(LauncherState::VoiceOutdated(_)) => tr!("main-window--version-outdated-tooltip"),
-
-                                            Some(LauncherState::FolderMigrationRequired { .. }) => tr!("migrate-folders-tooltip"),
-
-                                            _ => String::new()
-                                        }),
-
-                                        set_hexpand: false,
-                                        set_width_request: 200,
-
-                                        connect_clicked => AppMsg::PerformAction
-                                    }
-                                },
-
-                                adw::Bin {
-                                    set_css_classes: &["background", "round-bin"],
-
-                                    #[watch]
-                                    set_visible: model.kill_game_button,
-
-                                    gtk::Button {
-                                        adw::ButtonContent {
-                                            set_icon_name: "violence-symbolic", // window-close-symbolic
-                                            set_label: &tr!("kill-game-process")
-                                        },
-
-                                        #[watch]
-                                        set_sensitive: !model.disabled_kill_game_button,
-
-                                        set_css_classes: &["error", "pill"],
-
-                                        set_hexpand: false,
-                                        set_width_request: 200,
-
-                                        connect_clicked[sender] => move |_| {
-                                            sender.input(AppMsg::DisableKillGameButton(true));
-
-                                            std::thread::spawn(clone!(
-                                                #[strong]
-                                                sender,
-
-                                                move || {
-                                                    std::thread::sleep(std::time::Duration::from_secs(3));
-
-                                                    sender.input(AppMsg::DisableKillGameButton(false));
+                                                    _ => String::from("?")
                                                 }
-                                            ));
+                                            })),
 
-                                            let result = std::process::Command::new("pkill")
-                                                .arg("-f") // full text search
-                                                .arg("-i") // case-insensitive
-                                                .arg("ZenlessZoneZero")
-                                                .spawn();
+                                            #[watch]
+                                            set_visible: matches!(model.state.as_ref(), Some(LauncherState::PredownloadAvailable { .. })),
 
-                                            if let Err(err) = result {
-                                                sender.input(AppMsg::Toast {
-                                                    title: tr!("kill-game-process-failed"),
-                                                    description: Some(err.to_string())
-                                                });
-                                            }
+                                            #[watch]
+                                            set_sensitive: match model.state.as_ref() {
+                                                Some(LauncherState::PredownloadAvailable { game }) => {
+                                                    let config = Config::get().unwrap();
+                                                    let temp = config.launcher.temp.unwrap_or_else(std::env::temp_dir);
 
-                                            // Old warning message which I don't really understand now:
-                                            //
-                                            // Doesn't work on all the systems
-                                            // e.g. won't work if you didn't install wine system-wide
-                                            // there's some reasons for it
-                                            //
-                                            // UPD: I've tried this, and the problem is that it's completely pointless
-                                            //      For whatever reason it just doesn't work
+                                                    let downloaded = temp.join(game.file_name().unwrap()).metadata()
+                                                        .map(|metadata| Some(metadata.len()) >= game.downloaded_size())
+                                                        .unwrap_or(false);
 
-                                            // match Config::get() {
-                                            //     Ok(config) => {
-                                            //         match config.get_selected_wine() {
-                                            //             Ok(Some(version)) => {
-                                            //                 let result = version
-                                            //                     .to_wine(&config.components.path, Some(&config.game.wine.builds.join(&version.name)))
-                                            //                     .with_prefix(config.get_wine_prefix_path())
-                                            //                     .stop_processes(true);
+                                                    !downloaded
+                                                }
 
-                                            //                 dbg!(String::from_utf8_lossy(&result.as_ref().ok().unwrap().stdout));
-                                            //                 dbg!(String::from_utf8_lossy(&result.as_ref().ok().unwrap().stderr));
+                                                _ => false
+                                            },
 
-                                            //                 if let Err(err) = result {
-                                            //                     sender.input(AppMsg::Toast {
-                                            //                         title: tr!("kill-game-process-failed"),
-                                            //                         description: Some(err.to_string())
-                                            //                     });
-                                            //                 }
-                                            //             }
+                                            #[watch]
+                                            set_css_classes: match model.state.as_ref() {
+                                                Some(LauncherState::PredownloadAvailable { game }) => {
+                                                    let config = Config::get().unwrap();
+                                                    let temp = config.launcher.temp.unwrap_or_else(std::env::temp_dir);
 
-                                            //             Ok(None) => {
-                                            //                 sender.input(AppMsg::Toast {
-                                            //                     title: tr!("failed-get-selected-wine"),
-                                            //                     description: None
-                                            //                 });
-                                            //             }
+                                                    let downloaded = temp.join(game.file_name().unwrap()).metadata()
+                                                        .map(|metadata| Some(metadata.len()) >= game.downloaded_size())
+                                                        .unwrap_or(false);
 
-                                            //             Err(err) => {
-                                            //                 sender.input(AppMsg::Toast {
-                                            //                     title: tr!("failed-get-selected-wine"),
-                                            //                     description: Some(err.to_string())
-                                            //                 });
-                                            //             }
-                                            //         }
-                                            //     }
+                                                    if downloaded {
+                                                        &["success", "circular"]
+                                                    } else {
+                                                        &["warning", "circular"]
+                                                    }
+                                                }
 
-                                            //     Err(err) => {
-                                            //         sender.input(AppMsg::Toast {
-                                            //             title: tr!("config-file-opening-error"),
-                                            //             description: Some(err.to_string())
-                                            //         });
-                                            //     }
-                                            // }
+                                                _ => &["warning", "circular"]
+                                            },
+
+                                            set_icon_name: "document-save-symbolic",
+                                            set_hexpand: false,
+
+                                            connect_clicked => AppMsg::PredownloadUpdate
                                         }
-                                    }
-                                },
+                                    },
 
-                                adw::Bin {
-                                    set_css_classes: &["background", "round-bin"],
+                                    adw::Bin {
+                                        set_css_classes: &["background", "round-bin"],
 
-                                    gtk::Button {
                                         #[watch]
-                                        set_sensitive: !model.disabled_buttons,
+                                        set_visible: !model.kill_game_button,
 
-                                        set_width_request: 44,
+                                        gtk::Button {
+                                            adw::ButtonContent {
+                                                #[watch]
+                                                set_icon_name: match &model.state {
+                                                    Some(LauncherState::Launch) |
+                                                    Some(LauncherState::PredownloadAvailable { .. }) => "media-playback-start-symbolic",
 
-                                        add_css_class: "circular",
-                                        set_icon_name: "emblem-system-symbolic",
+                                                    Some(LauncherState::FolderMigrationRequired { .. }) |
+                                                    Some(LauncherState::WineNotInstalled) |
+                                                    Some(LauncherState::PrefixNotExists) |
+                                                    Some(LauncherState::DxvkNotInstalled) => "document-save-symbolic",
 
-                                        connect_clicked => AppMsg::OpenPreferences
+                                                    Some(LauncherState::GameUpdateAvailable(_)) |
+                                                    Some(LauncherState::GameNotInstalled(_)) |
+                                                    Some(LauncherState::VoiceUpdateAvailable(_)) |
+                                                    Some(LauncherState::VoiceNotInstalled(_)) => "document-save-symbolic",
+
+                                                    Some(LauncherState::TelemetryNotDisabled) => "security-high-symbolic",
+
+                                                    Some(LauncherState::GameOutdated(_)) |
+                                                    Some(LauncherState::VoiceOutdated(_)) |
+                                                    None => "window-close-symbolic"
+                                                },
+
+                                                #[watch]
+                                                set_label: &match &model.state {
+                                                    Some(LauncherState::Launch) |
+                                                    Some(LauncherState::PredownloadAvailable { .. }) => tr!("launch"),
+
+                                                    Some(LauncherState::FolderMigrationRequired { .. }) => tr!("migrate-folders"),
+                                                    Some(LauncherState::TelemetryNotDisabled) => tr!("disable-telemetry"),
+
+                                                    Some(LauncherState::WineNotInstalled) => tr!("download-wine"),
+                                                    Some(LauncherState::PrefixNotExists)  => tr!("create-prefix"),
+                                                    Some(LauncherState::DxvkNotInstalled) => tr!("install-dxvk"),
+
+                                                    Some(LauncherState::GameUpdateAvailable(diff)) |
+                                                    Some(LauncherState::GameOutdated(diff)) |
+                                                    Some(LauncherState::VoiceUpdateAvailable(diff)) |
+                                                    Some(LauncherState::VoiceOutdated(diff)) => {
+                                                        match (Config::get(), diff.file_name()) {
+                                                            (Ok(config), Some(filename)) => {
+                                                                let temp = config.launcher.temp.unwrap_or_else(std::env::temp_dir);
+
+                                                                if temp.join(filename).exists() {
+                                                                    tr!("resume")
+                                                                }
+
+                                                                else {
+                                                                    tr!("update")
+                                                                }
+                                                            }
+
+                                                            _ => tr!("update")
+                                                        }
+                                                    },
+
+                                                    Some(LauncherState::GameNotInstalled(_)) |
+                                                    Some(LauncherState::VoiceNotInstalled(_)) => tr!("download"),
+
+                                                    None => String::from("...")
+                                                }
+                                            },
+
+                                            #[watch]
+                                            set_sensitive: !model.disabled_buttons && match &model.state {
+                                                Some(LauncherState::GameOutdated { .. }) |
+                                                Some(LauncherState::VoiceOutdated(_)) => false,
+
+                                                Some(_) => true,
+                                                None => false
+                                            },
+
+                                            #[watch]
+                                            set_css_classes: match &model.state {
+                                                Some(LauncherState::GameOutdated { .. }) |
+                                                Some(LauncherState::VoiceOutdated(_)) => &["warning", "pill"],
+
+                                                Some(_) => &["suggested-action", "pill"],
+                                                None => &["pill"]
+                                            },
+
+                                            #[watch]
+                                            set_tooltip_text: Some(&match &model.state {
+                                                Some(LauncherState::GameOutdated { .. }) |
+                                                Some(LauncherState::VoiceOutdated(_)) => tr!("main-window--version-outdated-tooltip"),
+
+                                                Some(LauncherState::FolderMigrationRequired { .. }) => tr!("migrate-folders-tooltip"),
+
+                                                _ => String::new()
+                                            }),
+
+                                            set_hexpand: false,
+                                            set_width_request: 200,
+
+                                            connect_clicked => AppMsg::PerformAction
+                                        }
+                                    },
+
+                                    adw::Bin {
+                                        set_css_classes: &["background", "round-bin"],
+
+                                        #[watch]
+                                        set_visible: model.kill_game_button,
+
+                                        gtk::Button {
+                                            adw::ButtonContent {
+                                                set_icon_name: "violence-symbolic", // window-close-symbolic
+                                                set_label: &tr!("kill-game-process")
+                                            },
+
+                                            #[watch]
+                                            set_sensitive: !model.disabled_kill_game_button,
+
+                                            set_css_classes: &["error", "pill"],
+
+                                            set_hexpand: false,
+                                            set_width_request: 200,
+
+                                            connect_clicked[sender] => move |_| {
+                                                sender.input(AppMsg::DisableKillGameButton(true));
+
+                                                std::thread::spawn(clone!(
+                                                    #[strong]
+                                                    sender,
+
+                                                    move || {
+                                                        std::thread::sleep(std::time::Duration::from_secs(3));
+
+                                                        sender.input(AppMsg::DisableKillGameButton(false));
+                                                    }
+                                                ));
+
+                                                let result = std::process::Command::new("pkill")
+                                                    .arg("-f") // full text search
+                                                    .arg("-i") // case-insensitive
+                                                    .arg("ZenlessZoneZero")
+                                                    .spawn();
+
+                                                if let Err(err) = result {
+                                                    sender.input(AppMsg::Toast {
+                                                        title: tr!("kill-game-process-failed"),
+                                                        description: Some(err.to_string())
+                                                    });
+                                                }
+
+                                                // Old warning message which I don't really understand now:
+                                                //
+                                                // Doesn't work on all the systems
+                                                // e.g. won't work if you didn't install wine system-wide
+                                                // there's some reasons for it
+                                                //
+                                                // UPD: I've tried this, and the problem is that it's completely pointless
+                                                //      For whatever reason it just doesn't work
+
+                                                // match Config::get() {
+                                                //     Ok(config) => {
+                                                //         match config.get_selected_wine() {
+                                                //             Ok(Some(version)) => {
+                                                //                 let result = version
+                                                //                     .to_wine(&config.components.path, Some(&config.game.wine.builds.join(&version.name)))
+                                                //                     .with_prefix(config.get_wine_prefix_path())
+                                                //                     .stop_processes(true);
+
+                                                //                 dbg!(String::from_utf8_lossy(&result.as_ref().ok().unwrap().stdout));
+                                                //                 dbg!(String::from_utf8_lossy(&result.as_ref().ok().unwrap().stderr));
+
+                                                //                 if let Err(err) = result {
+                                                //                     sender.input(AppMsg::Toast {
+                                                //                         title: tr!("kill-game-process-failed"),
+                                                //                         description: Some(err.to_string())
+                                                //                     });
+                                                //                 }
+                                                //             }
+
+                                                //             Ok(None) => {
+                                                //                 sender.input(AppMsg::Toast {
+                                                //                     title: tr!("failed-get-selected-wine"),
+                                                //                     description: None
+                                                //                 });
+                                                //             }
+
+                                                //             Err(err) => {
+                                                //                 sender.input(AppMsg::Toast {
+                                                //                     title: tr!("failed-get-selected-wine"),
+                                                //                     description: Some(err.to_string())
+                                                //                 });
+                                                //             }
+                                                //         }
+                                                //     }
+
+                                                //     Err(err) => {
+                                                //         sender.input(AppMsg::Toast {
+                                                //             title: tr!("config-file-opening-error"),
+                                                //             description: Some(err.to_string())
+                                                //         });
+                                                //     }
+                                                // }
+                                            }
+                                        }
+                                    },
+
+                                    adw::Bin {
+                                        set_css_classes: &["background", "round-bin"],
+
+                                        gtk::Button {
+                                            #[watch]
+                                            set_sensitive: !model.disabled_buttons,
+
+                                            set_width_request: 44,
+
+                                            add_css_class: "circular",
+                                            set_icon_name: "emblem-system-symbolic",
+
+                                            connect_clicked => AppMsg::OpenPreferences
+                                        }
                                     }
                                 }
                             }
                         }
-                    }
-                }
+                    },
+
+                    set_measure_overlay: (&ui_contents, true),
+                    set_clip_overlay: (&overlay_picture, true),
+                },
             },
 
             connect_close_request[sender] => move |_| {
