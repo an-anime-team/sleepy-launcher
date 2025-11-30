@@ -108,6 +108,19 @@ impl BackgroundSpec {
         }
         Ok(())
     }
+
+    fn into_normal(self) -> Self {
+        match self {
+            Self::Normal {
+                background
+            }
+            | Self::Video {
+                background, ..
+            } => Self::Normal {
+                background
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
