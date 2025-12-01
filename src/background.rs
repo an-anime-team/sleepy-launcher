@@ -182,19 +182,6 @@ impl BackgroundSpec {
         }
         Ok(())
     }
-
-    fn into_normal(self) -> Self {
-        match self {
-            Self::Normal {
-                background
-            }
-            | Self::Video {
-                background, ..
-            } => Self::Normal {
-                background
-            }
-        }
-    }
 }
 
 fn finalize_file(bg_info: &Background, from: &Path, to: &Path) -> anyhow::Result<()> {
