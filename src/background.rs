@@ -7,6 +7,78 @@ use anime_launcher_sdk::anime_game_core::minreq;
 use anyhow::Context;
 use md5::{Digest, Md5};
 
+pub fn download_background(with_video: bool) -> anyhow::Result<()> {
+    tracing::debug!("Downloading background picture");
+
+    let info = get_background_info()?;
+
+    let regenerate_image = info.download(with_video)?;
+
+    if regenerate_image {
+        if gtk_webp_image_supported() {
+            std::fs::copy(&*crate::BACKGROUND_FILE, &*crate::PROCESSED_BACKGROUND_FILE)
+                .context("Copying background file")?;
+            if matches!(info, BackgroundSpec::Video { .. }) {
+                std::fs::copy(
+                    &*crate::BACKGROUND_OVERLAY_FILE,
+                    &*crate::PROCESSED_BACKGROUND_OVERLAY_FILE
+                )
+                .context("Copying background overlay file")?;
+            }
+        }
+        else {
+            tracing::info!("WebP GDK Pixbuf Loader is not installed, converting images to PNG");
+            info.convert_and_copy()?;
+        }
+
+        if matches!(info, BackgroundSpec::Normal { .. }) {
+            // Remove the overlay and video file if it's normal variant
+            // Ignore error, if file is already missing for example
+            let _ = std::fs::remove_file(&*crate::PROCESSED_BACKGROUND_OVERLAY_FILE);
+            let _ = std::fs::remove_file(&*crate::BACKGROUND_VIDEO_FILE);
+        }
+    }
+    else {
+        tracing::debug!("Not re-generating the background image, already latest")
+    }
+
+    Ok(())
+}
+
+#[cached::proc_macro::cached(result)]
+pub fn get_background_info() -> anyhow::Result<BackgroundSpec> {
+    let json =
+        serde_json::from_slice::<serde_json::Value>(minreq::get(get_uri()).send()?.as_bytes())?;
+
+    BackgroundSpec::from_json(&json)
+}
+
+pub fn get_uri() -> String {
+    let lang = crate::i18n::get_lang();
+
+    if lang.language == unic_langid::langid!("zh-cn").language {
+        concat!(
+            "https://hyp-api.",
+            "mi",
+            "ho",
+            "yo",
+            ".com/hyp/hyp-connect/api/getAllGameBasicInfo?launcher_id=jGHBHlcOq1"
+        )
+        .to_owned()
+    }
+    else {
+        let uri = concat!(
+            "https://sg-hyp-api.",
+            "ho",
+            "yo",
+            "verse",
+            ".com/hyp/hyp-connect/api/getAllGameBasicInfo?launcher_id=VYTpXlbWo8&language="
+        );
+
+        uri.to_owned() + &crate::i18n::format_lang(lang)
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum BackgroundSpec {
     Normal {
@@ -71,7 +143,7 @@ impl BackgroundSpec {
         }
     }
 
-    /// Return value indicates whether the background needs to be re-generated
+    /// Returns true if the background needs to be re-generated
     fn download(&self, with_video: bool) -> anyhow::Result<bool> {
         let mut regenerate_image = false;
 
@@ -125,122 +197,16 @@ impl BackgroundSpec {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct Background {
-    pub uri: String,
-    pub hash: String
-}
-
-impl Background {
-    fn from_uri(uri: String) -> Self {
-        let hash = get_img_hash_from_uri(&uri);
-        Self {
-            uri,
-            hash
-        }
+fn finalize_file(bg_info: &Background, from: &Path, to: &Path) -> anyhow::Result<()> {
+    if bg_info.uri.ends_with(".webp") {
+        convert_image(from, to).context(format!("Converting image {to:?}"))?;
     }
 
-    /// Return value indicates whether the background needs to be re-generated
-    fn download(&self, path: &Path) -> anyhow::Result<bool> {
-        if !check_img_file(path, &self.hash)? {
-            download_img_file(path, &self.uri)?;
-            return Ok(true);
-        }
-        Ok(false)
-    }
-}
-
-pub fn get_uri() -> String {
-    let lang = crate::i18n::get_lang();
-
-    if lang.language == unic_langid::langid!("zh-cn").language {
-        concat!(
-            "https://hyp-api.",
-            "mi",
-            "ho",
-            "yo",
-            ".com/hyp/hyp-connect/api/getAllGameBasicInfo?launcher_id=jGHBHlcOq1"
-        )
-        .to_owned()
-    }
-    else {
-        let uri = concat!(
-            "https://sg-hyp-api.",
-            "ho",
-            "yo",
-            "verse",
-            ".com/hyp/hyp-connect/api/getAllGameBasicInfo?launcher_id=VYTpXlbWo8&language="
-        );
-
-        uri.to_owned() + &crate::i18n::format_lang(lang)
-    }
-}
-
-fn get_img_hash_from_uri(uri: &str) -> String {
-    uri.split('/')
-        .next_back()
-        .unwrap_or_default()
-        .split('_')
-        .next()
-        .unwrap_or_default()
-        .to_owned()
-}
-
-fn get_img_uri_from_json_value(
-    backgrounds_info: Option<&serde_json::Value>,
-    key: &str
-) -> anyhow::Result<String> {
-    Ok(backgrounds_info
-        .and_then(|background| background[key]["url"].as_str())
-        .ok_or_else(|| anyhow::anyhow!("Failed to get background picture url"))?
-        .to_string())
-}
-
-#[cached::proc_macro::once()]
-fn gtk_webp_image_supported() -> bool {
-    let supported_pixbuf_formats = gtk::gdk_pixbuf::Pixbuf::formats();
-    supported_pixbuf_formats.into_iter().any(|format| {
-        format
-            .name()
-            .map(|name| name.eq_ignore_ascii_case("webp"))
-            .unwrap_or(false)
-            || format
-                .extensions()
-                .iter()
-                .any(|ext| ext.eq_ignore_ascii_case("webp"))
-    })
-}
-
-#[cached::proc_macro::cached(result)]
-pub fn get_background_info() -> anyhow::Result<BackgroundSpec> {
-    let json =
-        serde_json::from_slice::<serde_json::Value>(minreq::get(get_uri()).send()?.as_bytes())?;
-
-    BackgroundSpec::from_json(&json)
-}
-
-/// Returns true if image exists and is correct
-fn check_img_file(path: &Path, expected_hash: &str) -> anyhow::Result<bool> {
-    if path.exists() {
-        let hash = Md5::digest(std::fs::read(path)?);
-
-        if format!("{hash:x}").eq_ignore_ascii_case(expected_hash) {
-            tracing::debug!("Background picture {path:?} already downloaded. Skipping");
-
-            return Ok(true);
-        }
-    }
-
-    Ok(false)
-}
-
-fn download_img_file(path: &Path, uri: &str) -> anyhow::Result<()> {
-    let mut downloader = Downloader::new(uri)?;
-
-    downloader.continue_downloading = false;
-
-    if let Err(err) = downloader.download(path, |_, _| {}) {
-        anyhow::bail!(err);
+    // If it failed to re-code the file - just copy it
+    // Will happen with HSR because devs apparently named
+    // their background image ".webp" while it's JPEG
+    if !to.exists() {
+        std::fs::copy(from, to).context(format!("Copying {to:?}"))?;
     }
 
     Ok(())
@@ -264,54 +230,88 @@ fn convert_image(from: &Path, to: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn finalize_file(bg_info: &Background, from: &Path, to: &Path) -> anyhow::Result<()> {
-    if bg_info.uri.ends_with(".webp") {
-        convert_image(from, to).context(format!("Converting image {to:?}"))?;
-    }
-
-    // If it failed to re-code the file - just copy it
-    // Will happen with HSR because devs apparently named
-    // their background image ".webp" while it's JPEG
-    if !to.exists() {
-        std::fs::copy(from, to).context(format!("Copying {to:?}"))?;
-    }
-
-    Ok(())
+#[derive(Debug, Clone)]
+pub struct Background {
+    pub uri: String,
+    pub hash: String
 }
 
-pub fn download_background(with_video: bool) -> anyhow::Result<()> {
-    tracing::debug!("Downloading background picture");
-
-    let info = get_background_info()?;
-
-    let regenerate_image = info.download(with_video)?;
-
-    if regenerate_image {
-        if gtk_webp_image_supported() {
-            std::fs::copy(&*crate::BACKGROUND_FILE, &*crate::PROCESSED_BACKGROUND_FILE)
-                .context("Copying background file")?;
-            if matches!(info, BackgroundSpec::Video { .. }) {
-                std::fs::copy(
-                    &*crate::BACKGROUND_OVERLAY_FILE,
-                    &*crate::PROCESSED_BACKGROUND_OVERLAY_FILE
-                )
-                .context("Copying background overlay file")?;
-            }
-        }
-        else {
-            tracing::info!("WebP GDK Pixbuf Loader is not installed, converting images to PNG");
-            info.convert_and_copy()?;
-        }
-
-        if matches!(info, BackgroundSpec::Normal { .. }) {
-            // Remove the overlay and video file if it's normal variant
-            // Ignore error, if file is already missing for example
-            let _ = std::fs::remove_file(&*crate::PROCESSED_BACKGROUND_OVERLAY_FILE);
-            let _ = std::fs::remove_file(&*crate::BACKGROUND_VIDEO_FILE);
+impl Background {
+    fn from_uri(uri: String) -> Self {
+        let hash = get_img_hash_from_uri(&uri);
+        Self {
+            uri,
+            hash
         }
     }
-    else {
-        tracing::debug!("Not re-generating the background image, already latest")
+
+    /// Return true if the background needs to be re-generated
+    fn download(&self, path: &Path) -> anyhow::Result<bool> {
+        if !check_img_file(path, &self.hash)? {
+            download_img_file(path, &self.uri)?;
+            return Ok(true);
+        }
+        Ok(false)
+    }
+}
+
+/// Returns true if image exists and is correct
+fn check_img_file(path: &Path, expected_hash: &str) -> anyhow::Result<bool> {
+    if path.exists() {
+        let hash = Md5::digest(std::fs::read(path)?);
+
+        if format!("{hash:x}").eq_ignore_ascii_case(expected_hash) {
+            tracing::debug!("Background picture {path:?} already downloaded. Skipping");
+
+            return Ok(true);
+        }
+    }
+
+    Ok(false)
+}
+
+fn get_img_uri_from_json_value(
+    backgrounds_info: Option<&serde_json::Value>,
+    key: &str
+) -> anyhow::Result<String> {
+    Ok(backgrounds_info
+        .and_then(|background| background[key]["url"].as_str())
+        .ok_or_else(|| anyhow::anyhow!("Failed to get background picture url"))?
+        .to_string())
+}
+
+fn get_img_hash_from_uri(uri: &str) -> String {
+    uri.split('/')
+        .next_back()
+        .unwrap_or_default()
+        .split('_')
+        .next()
+        .unwrap_or_default()
+        .to_owned()
+}
+
+#[cached::proc_macro::once()]
+fn gtk_webp_image_supported() -> bool {
+    let supported_pixbuf_formats = gtk::gdk_pixbuf::Pixbuf::formats();
+    supported_pixbuf_formats.into_iter().any(|format| {
+        format
+            .name()
+            .map(|name| name.eq_ignore_ascii_case("webp"))
+            .unwrap_or(false)
+            || format
+                .extensions()
+                .iter()
+                .any(|ext| ext.eq_ignore_ascii_case("webp"))
+    })
+}
+
+fn download_img_file(path: &Path, uri: &str) -> anyhow::Result<()> {
+    let mut downloader = Downloader::new(uri)?;
+
+    downloader.continue_downloading = false;
+
+    if let Err(err) = downloader.download(path, |_, _| {}) {
+        anyhow::bail!(err);
     }
 
     Ok(())
