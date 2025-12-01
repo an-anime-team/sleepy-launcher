@@ -157,8 +157,8 @@ impl SimpleAsyncComponent for GeneralApp {
 
                 adw::ActionRow {
                     // TODO: locale strings
-                    set_title: "Use video background",
-                    set_subtitle: "Download and display video background",
+                    set_title: &tr!("video-background"),
+                    set_subtitle: &tr!("video-background-description"),
 
                     add_suffix = &gtk::Switch {
                         set_valign: gtk::Align::Center,
