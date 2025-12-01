@@ -180,7 +180,7 @@ impl SimpleComponent for App {
                         set_halign: gtk::Align::Start,
                         set_valign: gtk::Align::Start,
                         #[watch]
-                        set_visible: model.loading.is_none() && crate::BACKGROUND_VIDEO_FILE.exists() && model.use_video_background,
+                        set_visible: model.style == LauncherStyle::Classic && model.loading.is_none() && crate::BACKGROUND_VIDEO_FILE.exists() && model.use_video_background,
                         connect_visible_notify: |vidwidget| {
                             if vidwidget.is_visible() && vidwidget.media_stream().and_then(|ms| ms.error()).is_some() {
                                 vidwidget.set_filename(Some(crate::BACKGROUND_VIDEO_FILE.as_path()))
@@ -188,14 +188,9 @@ impl SimpleComponent for App {
                         },
                         connect_media_stream_notify: |vidwidget| {
                             if let Some(media_stream) = vidwidget.media_stream() {
-                                vidwidget.set_visible(true);
-                                let vclone = vidwidget.clone();
                                 media_stream.connect_error_notify(move |mstream| {
                                     if let Some(err) = mstream.error() {
                                         tracing::error!("Background video stream error: {err}");
-                                        vclone.set_visible(false);
-                                    } else {
-                                        vclone.set_visible(true);
                                     }
                                 });
                             }
@@ -209,7 +204,7 @@ impl SimpleComponent for App {
                         set_halign: gtk::Align::Start,
                         set_valign: gtk::Align::Start,
                         #[watch]
-                        set_visible: model.loading.is_none() && crate::PROCESSED_BACKGROUND_OVERLAY_FILE.exists() && model.use_video_background,
+                        set_visible: model.style == LauncherStyle::Classic && model.loading.is_none() && crate::PROCESSED_BACKGROUND_OVERLAY_FILE.exists() && model.use_video_background,
                     },
 
                     #[name = "ui_contents"]
