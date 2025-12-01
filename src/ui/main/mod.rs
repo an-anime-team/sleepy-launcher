@@ -56,6 +56,7 @@ pub struct App {
 
     loading: Option<Option<String>>,
     style: LauncherStyle,
+    use_video_background: bool,
     state: Option<LauncherState>,
 
     downloading: bool,
@@ -83,6 +84,7 @@ pub enum AppMsg {
     SetLauncherState(Option<LauncherState>),
 
     SetLauncherStyle(LauncherStyle),
+    SetVideoBackground(bool),
     SetLoadingStatus(Option<Option<String>>),
 
     SetDownloading(bool),
@@ -178,7 +180,12 @@ impl SimpleComponent for App {
                         set_halign: gtk::Align::Start,
                         set_valign: gtk::Align::Start,
                         #[watch]
-                        set_visible: model.loading.is_none() && crate::BACKGROUND_VIDEO_FILE.exists(),
+                        set_visible: model.loading.is_none() && crate::BACKGROUND_VIDEO_FILE.exists() && model.use_video_background,
+                        connect_visible_notify: |vidwidget| {
+                            if vidwidget.is_visible() && vidwidget.media_stream().and_then(|ms| ms.error()).is_some() {
+                                vidwidget.set_filename(Some(crate::BACKGROUND_VIDEO_FILE.as_path()))
+                            }
+                        },
                         connect_media_stream_notify: |vidwidget| {
                             if let Some(media_stream) = vidwidget.media_stream() {
                                 vidwidget.set_visible(true);
@@ -202,7 +209,7 @@ impl SimpleComponent for App {
                         set_halign: gtk::Align::Start,
                         set_valign: gtk::Align::Start,
                         #[watch]
-                        set_visible: model.loading.is_none() && crate::PROCESSED_BACKGROUND_OVERLAY_FILE.exists(),
+                        set_visible: model.loading.is_none() && crate::PROCESSED_BACKGROUND_OVERLAY_FILE.exists() && model.use_video_background,
                     },
 
                     #[name = "ui_contents"]
@@ -665,6 +672,7 @@ impl SimpleComponent for App {
 
             loading: Some(None),
             style: CONFIG.launcher.style,
+            use_video_background: CONFIG.launcher.video_background,
             state: None,
 
             downloading: false,
@@ -867,6 +875,7 @@ impl SimpleComponent for App {
         tracing::info!("Main window initialized");
 
         let download_picture = model.style == LauncherStyle::Classic && !KEEP_BACKGROUND_FILE.exists();
+        let download_video = model.use_video_background;
 
         // Initialize some heavy tasks
         std::thread::spawn(move || {
@@ -882,7 +891,7 @@ impl SimpleComponent for App {
                     sender,
 
                     move || {
-                        if let Err(err) = crate::background::download_background() {
+                        if let Err(err) = crate::background::download_background(download_video) {
                             tracing::error!("Failed to download background picture: {err}");
 
                             sender.input(AppMsg::Toast {
@@ -1069,6 +1078,10 @@ impl SimpleComponent for App {
 
             AppMsg::SetLauncherStyle(style) => {
                 self.style = style;
+            }
+
+            AppMsg::SetVideoBackground(use_video) => {
+                self.use_video_background = use_video
             }
 
             AppMsg::SetDownloading(state) => {

@@ -26,6 +26,7 @@ pub struct GeneralApp {
 
     game_diff: Option<VersionDiff>,
     style: LauncherStyle,
+    use_video_background: bool,
     languages: Vec<String>
 }
 
@@ -44,6 +45,7 @@ pub enum GeneralAppMsg {
     OpenComponentsPage,
 
     UpdateLauncherStyle(LauncherStyle),
+    SetVideoBackground(bool),
 
     WineOpen(&'static [&'static str]),
 
@@ -149,6 +151,21 @@ impl SimpleAsyncComponent for GeneralApp {
                             } else {
                                 std::fs::write(KEEP_BACKGROUND_FILE.as_path(), "");
                             }
+                        }
+                    }
+                },
+
+                adw::ActionRow {
+                    // TODO: locale strings
+                    set_title: "Use video background",
+                    set_subtitle: "Download and display video background",
+
+                    add_suffix = &gtk::Switch {
+                        set_valign: gtk::Align::Center,
+                        set_active: model.use_video_background,
+
+                        connect_state_notify[sender] => move |switch| {
+                            sender.input(GeneralAppMsg::SetVideoBackground(switch.state()));
                         }
                     }
                 }
@@ -444,6 +461,7 @@ impl SimpleAsyncComponent for GeneralApp {
 
             game_diff: None,
             style: CONFIG.launcher.style,
+            use_video_background: CONFIG.launcher.video_background,
             languages: SUPPORTED_LANGUAGES.iter().map(|lang| tr!(format_lang(lang).as_str())).collect()
         };
 
@@ -495,7 +513,7 @@ impl SimpleAsyncComponent for GeneralApp {
             #[allow(unused_must_use)]
             GeneralAppMsg::UpdateLauncherStyle(style) => {
                 if style == LauncherStyle::Classic && !KEEP_BACKGROUND_FILE.exists() {
-                    if let Err(err) = crate::background::download_background() {
+                    if let Err(err) = crate::background::download_background(self.use_video_background) {
                         tracing::error!("Failed to download background picture");
 
                         sender.input(GeneralAppMsg::Toast {
@@ -516,6 +534,31 @@ impl SimpleAsyncComponent for GeneralApp {
                 self.style = style;
 
                 sender.output(Self::Output::SetLauncherStyle(style));
+            }
+
+            GeneralAppMsg::SetVideoBackground(use_video) => {
+                if self.style == LauncherStyle::Classic && !KEEP_BACKGROUND_FILE.exists() && use_video {
+                    if let Err(err) = crate::background::download_background(use_video) {
+                        tracing::error!("Failed to download background video");
+
+                        sender.input(GeneralAppMsg::Toast {
+                            title: tr!("background-downloading-failed"),
+                            description: Some(err.to_string())
+                        });
+
+                        return;
+                    }
+                }
+
+                if let Ok(mut config) = Config::get() {
+                    config.launcher.video_background = use_video;
+
+                    Config::update(config);
+                }
+
+                self.use_video_background = use_video;
+
+                let _ = sender.output(Self::Output::SetVideoBackground(use_video));
             }
 
             GeneralAppMsg::WineOpen(executable) => {

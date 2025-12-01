@@ -279,12 +279,12 @@ fn finalize_file(bg_info: &Background, from: &Path, to: &Path) -> anyhow::Result
     Ok(())
 }
 
-pub fn download_background() -> anyhow::Result<()> {
+pub fn download_background(with_video: bool) -> anyhow::Result<()> {
     tracing::debug!("Downloading background picture");
 
     let info = get_background_info()?;
 
-    let regenerate_image = info.download(true)?;
+    let regenerate_image = info.download(with_video)?;
 
     if regenerate_image {
         if gtk_webp_image_supported() {
