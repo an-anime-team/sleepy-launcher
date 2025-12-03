@@ -198,13 +198,9 @@ impl SimpleComponent for App {
                         set_filename: Some(crate::BACKGROUND_VIDEO_FILE.as_path()),
                     },
 
-                    #[name = "overlay_picture"]
-                    add_overlay = &gtk::Picture::for_filename(crate::PROCESSED_BACKGROUND_OVERLAY_FILE.as_path()) {
-                        set_content_fit: gtk::ContentFit::Cover,
-                        set_halign: gtk::Align::Start,
-                        set_valign: gtk::Align::Start,
+                    add_overlay = &gtk::Box {
                         #[watch]
-                        set_visible: model.style == LauncherStyle::Classic && model.use_video_background && model.loading.is_none() && crate::PROCESSED_BACKGROUND_OVERLAY_FILE.exists(),
+                        set_css_classes: if model.style == LauncherStyle::Classic && model.use_video_background && model.loading.is_none() {&["background-overlay"]} else {&[""]},
                     },
 
                     #[name = "ui_contents"]
@@ -633,7 +629,6 @@ impl SimpleComponent for App {
                     },
 
                     set_measure_overlay: (&ui_contents, true),
-                    set_clip_overlay: (&overlay_picture, true),
                 },
             },
 

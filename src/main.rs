@@ -95,6 +95,12 @@ lazy_static::lazy_static! {
             background-size: cover, cover;
         }}
 
+        .background-overlay {{
+            background: url(\"file://{}\");
+            background-repeat: no-repeat;
+            background-size: cover;
+        }}
+
         window.classic-style progressbar {{
             background-color: #00000020;
             border-radius: 16px;
@@ -113,7 +119,8 @@ lazy_static::lazy_static! {
         }}
         ",
         PROCESSED_BACKGROUND_OVERLAY_FILE.to_string_lossy(),
-        PROCESSED_BACKGROUND_FILE.to_string_lossy()
+        PROCESSED_BACKGROUND_FILE.to_string_lossy(),
+        PROCESSED_BACKGROUND_OVERLAY_FILE.to_string_lossy(),
         );
 }
 
