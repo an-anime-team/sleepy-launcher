@@ -57,6 +57,7 @@ pub struct App {
     loading: Option<Option<String>>,
     style: LauncherStyle,
     use_video_background: bool,
+    background_index: u8,
     state: Option<LauncherState>,
 
     downloading: bool,
@@ -85,6 +86,7 @@ pub enum AppMsg {
 
     SetLauncherStyle(LauncherStyle),
     SetVideoBackground(bool),
+    SetBackgroundIndex(u8),
     SetLoadingStatus(Option<Option<String>>),
 
     SetDownloading(bool),
@@ -663,6 +665,7 @@ impl SimpleComponent for App {
             loading: Some(None),
             style: CONFIG.launcher.style,
             use_video_background: CONFIG.launcher.video_background,
+            background_index: CONFIG.launcher.background_index,
             state: None,
 
             downloading: false,
@@ -866,6 +869,7 @@ impl SimpleComponent for App {
 
         let download_picture = model.style == LauncherStyle::Classic && !KEEP_BACKGROUND_FILE.exists();
         let download_video = model.use_video_background;
+        let background_index = model.background_index;
 
         // Initialize some heavy tasks
         std::thread::spawn(move || {
@@ -881,7 +885,7 @@ impl SimpleComponent for App {
                     sender,
 
                     move || {
-                        if let Err(err) = crate::background::download_background(download_video) {
+                        if let Err(err) = crate::background::download_background(download_video, background_index) {
                             tracing::error!("Failed to download background picture: {err}");
 
                             sender.input(AppMsg::Toast {
@@ -1072,6 +1076,10 @@ impl SimpleComponent for App {
 
             AppMsg::SetVideoBackground(use_video) => {
                 self.use_video_background = use_video
+            }
+
+            AppMsg::SetBackgroundIndex(background_index) => {
+                self.background_index = background_index
             }
 
             AppMsg::SetDownloading(state) => {

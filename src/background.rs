@@ -7,10 +7,10 @@ use anime_launcher_sdk::anime_game_core::minreq;
 use anyhow::Context;
 use md5::{Digest, Md5};
 
-pub fn download_background(with_video: bool) -> anyhow::Result<()> {
+pub fn download_background(with_video: bool, index: u8) -> anyhow::Result<()> {
     tracing::debug!("Downloading background picture");
 
-    let info = get_background_info()?;
+    let info = get_background_info(index)?;
 
     let regenerate_image = info.download(with_video)?;
 
@@ -46,11 +46,19 @@ pub fn download_background(with_video: bool) -> anyhow::Result<()> {
 }
 
 #[cached::proc_macro::cached(result)]
-pub fn get_background_info() -> anyhow::Result<BackgroundSpec> {
+pub fn get_background_info_multiple() -> anyhow::Result<Vec<BackgroundSpec>> {
     let json =
         serde_json::from_slice::<serde_json::Value>(minreq::get(get_uri()).send()?.as_bytes())?;
 
-    BackgroundSpec::from_json(&json)
+    BackgroundSpec::from_json_all(&json)
+}
+
+#[cached::proc_macro::cached(result)]
+pub fn get_background_info(index: u8) -> anyhow::Result<BackgroundSpec> {
+    let json =
+        serde_json::from_slice::<serde_json::Value>(minreq::get(get_uri()).send()?.as_bytes())?;
+
+    BackgroundSpec::from_json_single(&json, index)
 }
 
 pub fn get_uri() -> String {
@@ -92,9 +100,26 @@ pub enum BackgroundSpec {
 }
 
 impl BackgroundSpec {
-    fn from_json(value: &serde_json::Value) -> anyhow::Result<Self> {
-        let backgrounds_info =
-            value["data"]["game_info_list"]
+    fn from_json_single(value: &serde_json::Value, index: u8) -> anyhow::Result<Self> {
+        let backgrounds_json = Self::backgrounds_json_from_value(value)?;
+        Self::from_json_value(
+            backgrounds_json
+                .get(index as usize)
+                .or_else(|| backgrounds_json.first())
+                .ok_or_else(|| anyhow::anyhow!("The API did not provide any backgrounds"))?
+        )
+    }
+
+    fn from_json_all(value: &serde_json::Value) -> anyhow::Result<Vec<Self>> {
+        let backgrounds_json = Self::backgrounds_json_from_value(value)?;
+
+        backgrounds_json.iter().map(Self::from_json_value).collect()
+    }
+
+    fn backgrounds_json_from_value(
+        value: &serde_json::Value
+    ) -> anyhow::Result<&Vec<serde_json::Value>> {
+        value["data"]["game_info_list"]
                 .as_array()
                 .ok_or_else(|| anyhow::anyhow!("Failed to list games in the backgrounds API"))?
                 .iter()
@@ -105,18 +130,22 @@ impl BackgroundSpec {
                 .ok_or_else(|| anyhow::anyhow!("Failed to find the game in the backgrounds API"))?
                 ["backgrounds"]
                 .as_array()
-                .and_then(|backgrounds| backgrounds.iter().next_back());
+                .ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "Failed to parse backgrounds API: `backgrounds` is not an array"
+                    )
+                })
+    }
 
-        let background_uri = get_img_uri_from_json_value(backgrounds_info, "background")?;
+    fn from_json_value(value: &serde_json::Value) -> anyhow::Result<Self> {
+        let background_uri = get_img_uri_from_json_value(Some(value), "background")?;
         let background = Background::from_uri(background_uri);
 
-        if backgrounds_info.and_then(|bginfo| bginfo["type"].as_str())
-            == Some("BACKGROUND_TYPE_VIDEO")
-        {
-            let video_uri = get_img_uri_from_json_value(backgrounds_info, "video")?;
+        if value["type"].as_str() == Some("BACKGROUND_TYPE_VIDEO") {
+            let video_uri = get_img_uri_from_json_value(Some(value), "video")?;
             let video = Background::from_uri(video_uri);
 
-            let overlay_uri = get_img_uri_from_json_value(backgrounds_info, "theme")?;
+            let overlay_uri = get_img_uri_from_json_value(Some(value), "theme")?;
             let overlay = Background::from_uri(overlay_uri);
 
             Ok(Self::Video {
