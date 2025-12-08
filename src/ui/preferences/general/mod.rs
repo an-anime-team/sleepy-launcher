@@ -47,7 +47,6 @@ pub enum GeneralAppMsg {
 
     UpdateLauncherStyle(LauncherStyle),
     SetVideoBackground(bool),
-    SetBackgroundIndex(u8),
 
     WineOpen(&'static [&'static str]),
 
@@ -562,31 +561,6 @@ impl SimpleAsyncComponent for GeneralApp {
                 self.use_video_background = use_video;
 
                 let _ = sender.output(Self::Output::SetVideoBackground(use_video));
-            }
-
-            GeneralAppMsg::SetBackgroundIndex(background_index) => {
-                if self.style == LauncherStyle::Classic && !KEEP_BACKGROUND_FILE.exists() {
-                    if let Err(err) = crate::background::download_background(self.use_video_background, background_index) {
-                        tracing::error!("Failed to download background picture/video");
-
-                        sender.input(GeneralAppMsg::Toast {
-                            title: tr!("background-downloading-failed"),
-                            description: Some(err.to_string())
-                        });
-
-                        return;
-                    }
-                }
-
-                if let Ok(mut config) = Config::get() {
-                    config.launcher.background_index = background_index;
-
-                    Config::update(config);
-                }
-
-                self.background_index = background_index;
-
-                let _ = sender.output(Self::Output::SetBackgroundIndex(background_index));
             }
 
             GeneralAppMsg::WineOpen(executable) => {
