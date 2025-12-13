@@ -238,7 +238,11 @@ fn convert_image(from: &Path, to: &Path) -> anyhow::Result<()> {
             .wait()?;
     }
     else if is_available("magick") {
-        Command::new("magick").arg(from).arg(to).spawn()?.wait()?;
+        Command::new("magick")
+            .arg(from)
+            .arg(format!("PNG:{}", to.display()))
+            .spawn()?
+            .wait()?;
     }
     else {
         return Err(anyhow::anyhow!("No command to convert the image from webp"));
