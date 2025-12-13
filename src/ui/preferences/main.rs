@@ -27,6 +27,8 @@ pub enum PreferencesAppMsg {
     /// was retrieved from the API
     SetGameDiff(Option<VersionDiff>),
     SetLauncherStyle(LauncherStyle),
+    SetVideoBackground(bool),
+    SetBackgroundIndex(u8),
 
     UpdateLauncherState,
     RepairGame,
@@ -108,6 +110,14 @@ impl SimpleAsyncComponent for PreferencesApp {
             #[allow(unused_must_use)]
             PreferencesAppMsg::SetLauncherStyle(style) => {
                 sender.output(Self::Output::SetLauncherStyle(style));
+            }
+
+            PreferencesAppMsg::SetVideoBackground(use_video) => {
+                sender.output(Self::Output::SetVideoBackground(use_video));
+            }
+
+            PreferencesAppMsg::SetBackgroundIndex(background_index) => {
+                sender.output(Self::Output::SetBackgroundIndex(background_index));
             }
 
             #[allow(unused_must_use)]
