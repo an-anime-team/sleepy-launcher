@@ -3,6 +3,8 @@ modern = Modern
 classic = Klassiek
 update-background = Achtergrondafbeelding bijwerken
 update-background-description = Download de officiële achtergrondafbeelding voor de launcher. Je kunt het uitschakelen om in plaats daarvan je eigen afbeelding te gebruiken
+video-background = Use animated background
+video-background-description = Download and display official animated background for the launcher
 
 launcher-language = Launcher taal
 launcher-language-description = Past toe na opnieuw opstarten
