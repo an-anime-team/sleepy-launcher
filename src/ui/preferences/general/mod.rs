@@ -157,7 +157,6 @@ impl SimpleAsyncComponent for GeneralApp {
                 },
 
                 adw::ActionRow {
-                    // TODO: locale strings
                     set_title: &tr!("video-background"),
                     set_subtitle: &tr!("video-background-description"),
 
