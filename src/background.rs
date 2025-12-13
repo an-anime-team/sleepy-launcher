@@ -245,7 +245,7 @@ fn convert_image(from: &Path, to: &Path) -> anyhow::Result<()> {
             .wait()?;
     }
     else {
-        return Err(anyhow::anyhow!("No command to convert the image from webp"));
+        tracing::warn!("Could not find `dwebp` or `magick` to convert the image file.");
     }
     Ok(())
 }
