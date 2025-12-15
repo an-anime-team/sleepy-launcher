@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added support for animated backgrounds (can be turned off in the settings)
+- Added support for selecting the background via config file if there are multiple
+
 ## [1.6.0] - 12.11.2025
 
 ### Added
