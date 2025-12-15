@@ -52,6 +52,7 @@
         <p>Added support for animated backgrounds (can be turned off in the settings)</p>
         <p>Added support for selecting the background via config file if there are multiple</p>
         <p>Fixed signal search error message in english</p>
+        <p>Removed imagemagick dependency</p>
       </description>
     </release>
     <release version="1.6.0" date="2025-11-12">

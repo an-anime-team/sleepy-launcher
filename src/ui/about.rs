@@ -103,6 +103,13 @@ impl SimpleComponent for AboutDialog {
 
                 "<ul>",
                     "<li>Fixed signal search error message in english</li>",
+                "</ul>",
+
+
+                "<p>Removed</p>",
+
+                "<ul>",
+                    "<li>Removed imagemagick dependency</li>",
                 "</ul>"
             ].join("\n"),
 

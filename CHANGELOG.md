@@ -16,6 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Fixed signal search error message in english
 
+### Removed
+
+- Removed imagemagick dependency
+
 ## [1.6.0] - 12.11.2025
 
 ### Added
