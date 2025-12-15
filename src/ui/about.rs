@@ -94,22 +94,22 @@ impl SimpleComponent for AboutDialog {
                 "<p>Added</p>",
 
                 "<ul>",
-                    "<li>Added support for layered launcher backgrounds (background separate from text)</li>",
+                    "<li>Added support for animated backgrounds (can be turned off in the settings)</li>",
+                    "<li>Added support for selecting the background via config file if there are multiple</li>",
                 "</ul>",
 
 
                 "<p>Fixed</p>",
 
                 "<ul>",
-                    "<li>Fixed size of images in the \"Appearance\" preferences section (most noticeable on flatpak)</li>",
-                    "<li>Updated default window size in classic appearance option to match the other launchers</li>",
+                    "<li>Fixed signal search error message in english</li>",
                 "</ul>",
 
 
-                "<p>Changed</p>",
+                "<p>Removed</p>",
 
                 "<ul>",
-                    "<li>Removed dwebp dependency, replaced by imagemagick</li>",
+                    "<li>Removed imagemagick dependency</li>",
                 "</ul>"
             ].join("\n"),
 

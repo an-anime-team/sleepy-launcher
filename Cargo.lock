@@ -82,8 +82,8 @@ dependencies = [
 
 [[package]]
 name = "anime-launcher-sdk"
-version = "1.32.0"
-source = "git+https://github.com/an-anime-team/anime-launcher-sdk?tag=1.32.0#87c42064d8422a39b92efbd9035cbd38fffe8f91"
+version = "1.33.0"
+source = "git+https://github.com/an-anime-team/anime-launcher-sdk?tag=1.33.0#f75593be9df416dd76ac6c5ce28140ed0feaef4d"
 dependencies = [
  "anime-game-core",
  "anyhow",
@@ -2613,7 +2613,7 @@ checksum = "7a2ae44ef20feb57a68b23d846850f861394c2e02dc425a50098ae8c90267589"
 
 [[package]]
 name = "sleepy-launcher"
-version = "1.6.0"
+version = "1.6.1"
 dependencies = [
  "anime-launcher-sdk",
  "anyhow",
