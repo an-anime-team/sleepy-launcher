@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added support for animated backgrounds (can be turned off in the settings)
 - Added support for selecting the background via config file if there are multiple
 
+### Fixed
+
+- Fixed signal search error message in english
+
 ## [1.6.0] - 12.11.2025
 
 ### Added
