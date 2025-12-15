@@ -68,7 +68,7 @@ impl SimpleAsyncComponent for DependenciesApp {
                         },
 
                         gtk::Entry {
-                            set_text: "sudo pacman -Syu git p7zip imagemagick",
+                            set_text: "sudo pacman -Syu git p7zip",
                             set_editable: false
                         }
                     },
@@ -85,7 +85,7 @@ impl SimpleAsyncComponent for DependenciesApp {
                         },
 
                         gtk::Entry {
-                            set_text: "sudo apt install git p7zip-full imagemagick",
+                            set_text: "sudo apt install git p7zip-full",
                             set_editable: false
                         }
                     },
@@ -102,7 +102,7 @@ impl SimpleAsyncComponent for DependenciesApp {
                         },
 
                         gtk::Entry {
-                            set_text: "sudo dnf install git p7zip ImageMagick",
+                            set_text: "sudo dnf install git p7zip",
                             set_editable: false
                         }
                     },
@@ -122,10 +122,6 @@ impl SimpleAsyncComponent for DependenciesApp {
                             adw::ActionRow {
                                 set_title: "p7zip"
                             },
-
-                            adw::ActionRow {
-                                set_title: "imagemagick"
-                            }
                         }
                     }
                 }
@@ -191,7 +187,7 @@ impl SimpleAsyncComponent for DependenciesApp {
         match msg {
             #[allow(unused_must_use)]
             DependenciesAppMsg::Continue => {
-                let packages = ["git", "magick"];
+                let packages = ["git"];
 
                 for package in packages {
                     if !is_available(package) {
