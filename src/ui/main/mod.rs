@@ -185,6 +185,8 @@ impl SimpleComponent for App {
 
                         #[wrap(Some)]
                         set_paintable = &gtk::MediaFile::for_filename(crate::BACKGROUND_VIDEO_FILE.as_path()) {
+                            #[watch]
+                            set_playing: !model.kill_game_button,
                             set_loop: true,
 
                             connect_error_notify: |mstream| {
