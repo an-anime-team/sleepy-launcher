@@ -7,7 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-# [1.6.1] - 2025-12-15
+## [1.6.2] - 2026-01-03
+
+### Added
+
+- The video background will now pause when the game is launched
+- The video background is muted (the audio output still exists, file's audio is ignored)
+
+### Changed
+
+- Changed the way the video background is displayed, improving the look when the window is resized
+
+## [1.6.1] - 2025-12-15
 
 ### Added
 
@@ -119,7 +130,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <br>
 
-[unreleased]: https://github.com/an-anime-team/sleepy-launcher/compare/1.6.1...next
+[unreleased]: https://github.com/an-anime-team/sleepy-launcher/compare/1.6.2...next
+[1.6.2]: https://github.com/an-anime-team/sleepy-launcher/compare/1.6.1...1.6.2
 [1.6.1]: https://github.com/an-anime-team/sleepy-launcher/compare/1.6.0...1.6.1
 [1.6.0]: https://github.com/an-anime-team/sleepy-launcher/compare/1.5.0...1.6.0
 [1.5.0]: https://github.com/an-anime-team/sleepy-launcher/compare/1.4.0...1.5.0

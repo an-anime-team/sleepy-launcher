@@ -2613,7 +2613,7 @@ checksum = "7a2ae44ef20feb57a68b23d846850f861394c2e02dc425a50098ae8c90267589"
 
 [[package]]
 name = "sleepy-launcher"
-version = "1.6.1"
+version = "1.6.2"
 dependencies = [
  "anime-launcher-sdk",
  "anyhow",

@@ -174,30 +174,28 @@ impl SimpleComponent for App {
             toast_overlay -> adw::ToastOverlay {
                 gtk::Overlay {
                     #[name = "background_video"]
-                    gtk::Video::new() {
+                    gtk::Picture::new() {
                         set_hexpand: true,
                         set_vexpand: true,
-                        set_autoplay: true,
-                        set_loop: true,
-                        set_halign: gtk::Align::Start,
-                        set_valign: gtk::Align::Start,
+                        set_halign: gtk::Align::Fill,
+                        set_valign: gtk::Align::Fill,
+                        set_content_fit: gtk::ContentFit::Cover,
                         #[watch]
                         set_visible: model.style == LauncherStyle::Classic && model.use_video_background && model.loading.is_none() && crate::BACKGROUND_VIDEO_FILE.exists(),
-                        connect_visible_notify: |vidwidget| {
-                            if vidwidget.is_visible() && vidwidget.media_stream().and_then(|ms| ms.error()).is_some() {
-                                vidwidget.set_filename(Some(crate::BACKGROUND_VIDEO_FILE.as_path()))
+
+                        #[wrap(Some)]
+                        set_paintable = &gtk::MediaFile::for_filename(crate::BACKGROUND_VIDEO_FILE.as_path()) {
+                            set_muted: true,
+                            set_loop: true,
+                            #[watch]
+                            set_playing: !model.kill_game_button && model.style == LauncherStyle::Classic && model.use_video_background && model.loading.is_none() && crate::BACKGROUND_VIDEO_FILE.exists(),
+
+                            connect_error_notify: |mstream| {
+                                if let Some(err) = mstream.error() {
+                                    tracing::error!("Background video stream error: {err}");
+                                }
                             }
-                        },
-                        connect_media_stream_notify: |vidwidget| {
-                            if let Some(media_stream) = vidwidget.media_stream() {
-                                media_stream.connect_error_notify(move |mstream| {
-                                    if let Some(err) = mstream.error() {
-                                        tracing::error!("Background video stream error: {err}");
-                                    }
-                                });
-                            }
-                        },
-                        set_filename: Some(crate::BACKGROUND_VIDEO_FILE.as_path()),
+                        }
                     },
 
                     add_overlay = &gtk::Box {
