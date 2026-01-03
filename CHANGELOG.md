@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- The video background will now pause when the game is launched
+- The video background is muted (the audio output still exists, file's audio is ignored)
+
+### Changed
+
+- Changed the way the video background is displayed, improving the look when the window is resized
+
 # [1.6.1] - 2025-12-15
 
 ### Added

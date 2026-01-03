@@ -94,22 +94,14 @@ impl SimpleComponent for AboutDialog {
                 "<p>Added</p>",
 
                 "<ul>",
-                    "<li>Added support for animated backgrounds (can be turned off in the settings)</li>",
-                    "<li>Added support for selecting the background via config file if there are multiple</li>",
+                    "<li>The video background will now pause when the game is launched</li>",
+                    "<li>The video background is muted (the audio output still exists, file's audio is ignored)</li>",
                 "</ul>",
 
-
-                "<p>Fixed</p>",
-
-                "<ul>",
-                    "<li>Fixed signal search error message in english</li>",
-                "</ul>",
-
-
-                "<p>Removed</p>",
+                "<p>Changed</p>",
 
                 "<ul>",
-                    "<li>Removed imagemagick dependency</li>",
+                    "<li>Changed the way the video background is displayed, improving the look when the window is resized</li>",
                 "</ul>"
             ].join("\n"),
 

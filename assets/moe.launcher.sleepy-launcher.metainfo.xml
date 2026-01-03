@@ -47,6 +47,13 @@
   </categories>
   <content_rating type="oars-1.1" />
   <releases>
+    <release version="1.6.2" date="2026-01-03">
+      <description>
+        <p>The video background will now pause when the game is launched</p>
+        <p>The video background is muted (the audio output still exists, file's audio is ignored)</p>
+        <p>Changed the way the video background is displayed, improving the look when the window is resized</p>
+      </description>
+    </release>
     <release version="1.6.1" date="2025-12-15">
       <description>
         <p>Added support for animated backgrounds (can be turned off in the settings)</p>
