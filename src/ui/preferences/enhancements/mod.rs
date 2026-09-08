@@ -65,12 +65,14 @@ impl SimpleAsyncComponent for EnhancementsApp {
 
                         set_active: CONFIG.game.enhancements.dx12,
 
-                        connect_state_notify => |switch| {
+                        connect_state_notify[sender] => move |switch| {
                             if is_ready() {
                                 if let Ok(mut config) = Config::get() {
                                     config.game.enhancements.dx12 = switch.is_active();
 
                                     Config::update(config);
+
+                                    let _ = sender.output(PreferencesAppMsg::UpdateLauncherState);
                                 }
                             }
                         }
