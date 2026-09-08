@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixed %temp% and %game% command keywords being mixed up
+
+### Changed
+
+- Launcher will now only prompt to install DX12 dependencies when DX12 is enabled
+
 ## [1.7.0] - 2026-08-05
 
 ### Added
