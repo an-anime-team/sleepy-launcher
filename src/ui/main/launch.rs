@@ -22,7 +22,7 @@ pub fn launch(sender: ComponentSender<App>) {
     }
 
     std::thread::spawn(move || {
-        let suggest_timeout_fix = match anime_launcher_sdk::zzz::game::run() {
+        let suggest_timeout_fix = match crate::dlss::run_game() {
             Ok(suggest) => suggest,
             Err(err) => {
                 tracing::error!("Failed to launch game: {err}");
