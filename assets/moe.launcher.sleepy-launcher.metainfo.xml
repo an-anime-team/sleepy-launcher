@@ -49,6 +49,12 @@
   </categories>
   <content_rating type="oars-1.1" />
   <releases>
+    <release version="1.7.1" date="2026-09-11">
+      <description>
+        <p>Fixed %temp% and %game% command keywords being mixed up</p>
+        <p>Launcher will now only prompt to install DX12 dependencies when DX12 is enabled</p>
+      </description>
+    </release>
     <release version="1.7.0" date="2026-08-05">
       <description>
         <p>Added option to enable DirectX 12 support</p>
