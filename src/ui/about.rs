@@ -93,18 +93,16 @@ impl SimpleComponent for AboutDialog {
             set_release_notes_version: &APP_VERSION,
             set_release_notes:
                 r#"
-                <p>Added</p>
+                <p>Fixed</p>
 
                 <ul>
-                    <li>Added option to enable DirectX 12 support</li>
-                    <li>Added NTSync as a wine sync method (cosmetic/no-op, NTSync is used automatically on supported wine versions)</li>
-                    <li>Added command-line arguments help text</li>
+                    <li>Fixed %temp% and %game% command keywords being mixed up</li>
                 </ul>
 
                 <p>Changed</p>
 
                 <ul>
-                    <li>Improved readability of progress bar text</li>
+                    <li>Launcher will now only prompt to install DX12 dependencies when DX12 is enabled</li>
                 </ul>
                 "#,
 
