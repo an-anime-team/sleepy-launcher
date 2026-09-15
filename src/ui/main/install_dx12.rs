@@ -2,6 +2,7 @@ use std::path::{Path, PathBuf};
 
 use relm4::prelude::*;
 use relm4::Sender;
+use sha2::{Digest, Sha256};
 
 use gtk::glib::clone;
 
@@ -14,12 +15,16 @@ use anime_launcher_sdk::anime_game_core::minreq;
 use anime_launcher_sdk::anime_game_core::installer::downloader::Downloader;
 
 use crate::*;
+use crate::dlss::find_nvidia_wine_dll_dir;
 use crate::ui::components::*;
 
 use super::{App, AppMsg};
 
 const VKD3D_REPO: &str = "HansKristian-Work/vkd3d-proton";
 const NVAPI_REPO: &str = "jp7677/dxvk-nvapi";
+const MSASN1_URI: &str =
+    "https://msdl.microsoft.com/download/symbols/msasn1.dll/75B46E1213000/msasn1.dll";
+const MSASN1_SHA256: &str = "5a7fd41c5d3df762816b170a3dfd51603c4ca48bd777dcf888522e153613a082";
 
 // find the download url of the latest release asset whose name ends with `suffix`.
 // we read the actual asset url instead of building it ourselves because upstream
@@ -86,7 +91,7 @@ fn extract_archive(archive: &Path, dest: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
-// find the dir that directly holds the x64 folder to make up for 
+// find the dir that directly holds the x64 folder to make up for
 // whether the archive wraps its contents in a version folder
 fn find_arch_root(root: &Path) -> anyhow::Result<PathBuf> {
     if root.join("x64").is_dir() {
@@ -113,34 +118,53 @@ fn copy_dll(from: &Path, to_dir: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
-// locate the host nvidia driver's "nvidia/wine" dir that ships nvngx.dll / _nvngx.dll
-// proton derives this as dirname(libGLX_nvidia.so.0)/nvidia/wine, but
-// resolves the .so via dlopen and dlinfo, while we resolve it from the ldconfig cache instead
-// https://github.com/ValveSoftware/Proton/blob/0745bfbc4cf4365e8cf048b003990c59def29948/proton#L376
-fn find_nvidia_wine_dll_dir() -> Option<PathBuf> {
-    if let Ok(output) = std::process::Command::new("ldconfig").arg("-p").output() {
-        let stdout = String::from_utf8_lossy(&output.stdout);
+fn sha256(path: &Path) -> anyhow::Result<String> {
+    Ok(format!("{:x}", Sha256::digest(std::fs::read(path)?)))
+}
 
-        for line in stdout.lines() {
-            if !line.contains("libGLX_nvidia.so.0") {
-                continue;
-            }
+// Spritz needs the native Microsoft ASN.1 runtime for NVIDIA Streamline's
+// signature checks. Fetch the exact signed Windows 11 DLL from Microsoft's
+// public symbol server and pin its digest so unexpected content is never put
+// into the Wine prefix.
+fn install_msasn1(
+    temp: &Path,
+    system32: &Path,
+    progress_bar_input: &Sender<ProgressBarMsg>
+) -> anyhow::Result<()> {
+    let destination = system32.join("msasn1.dll");
 
-            if let Some(path) = line.split("=>").nth(1) {
-                if let Ok(real) = PathBuf::from(path.trim()).canonicalize() {
-                    if let Some(parent) = real.parent() {
-                        let dir = parent.join("nvidia").join("wine");
-
-                        if dir.join("nvngx.dll").exists() {
-                            return Some(dir);
-                        }
-                    }
-                }
-            }
-        }
+    if destination.is_file() && sha256(&destination)? == MSASN1_SHA256 {
+        tracing::info!("Native Microsoft msasn1.dll is already installed");
+        return Ok(());
     }
 
-    None
+    #[allow(unused_must_use)] {
+        progress_bar_input.send(ProgressBarMsg::UpdateCaption(Some(tr!("downloading"))));
+    }
+
+    std::fs::create_dir_all(temp)?;
+
+    let download = temp.join("msasn1-75B46E1213000.dll");
+    let staged = system32.join("msasn1.dll.sleepy-download");
+
+    let _ = std::fs::remove_file(&download);
+    let _ = std::fs::remove_file(&staged);
+
+    download_file(MSASN1_URI, &download, progress_bar_input)?;
+
+    let digest = sha256(&download)?;
+    if digest != MSASN1_SHA256 {
+        let _ = std::fs::remove_file(&download);
+        anyhow::bail!(
+            "Microsoft msasn1.dll checksum mismatch: expected {MSASN1_SHA256}, got {digest}"
+        );
+    }
+
+    std::fs::copy(&download, &staged)?;
+    std::fs::rename(&staged, &destination)?;
+    let _ = std::fs::remove_file(&download);
+
+    Ok(())
 }
 
 // install vkd3d-proton into the prefix
@@ -224,6 +248,13 @@ fn install_nvapi(
         wine.add_override(dll, [OverrideMode::Native])?;
     }
 
+    // Proton enables Wine's CUDA shim for NGX. Spritz also needs the native
+    // msasn1 fallback while keeping Wine's wintrust and crypt32 implementations.
+    wine.add_override("nvcuda", [OverrideMode::Builtin])?;
+    wine.add_override("msasn1", [OverrideMode::Native, OverrideMode::Builtin])?;
+    wine.add_override("wintrust", [OverrideMode::Builtin])?;
+    wine.add_override("crypt32", [OverrideMode::Builtin])?;
+
     // dxvk-nvapi needs the driver's nvngx dlls for dlss
     match find_nvidia_wine_dll_dir() {
         Some(nvidia_dir) => {
@@ -276,7 +307,8 @@ pub fn install_dx12(sender: ComponentSender<App>, progress_bar_input: Sender<Pro
                     sender.input(AppMsg::SetDownloading(true));
 
                     let result = install_vkd3d(&wine, &temp, &system32, &syswow64, &progress_bar_input)
-                        .and_then(|()| install_nvapi(&wine, &temp, &system32, &syswow64, &progress_bar_input));
+                        .and_then(|()| install_nvapi(&wine, &temp, &system32, &syswow64, &progress_bar_input))
+                        .and_then(|()| install_msasn1(&temp, &system32, &progress_bar_input));
 
                     sender.input(AppMsg::SetDownloading(false));
 

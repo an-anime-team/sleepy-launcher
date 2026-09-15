@@ -41,6 +41,7 @@ anyhow = "1.0"
 lazy_static = "1.5.0"
 cached = { version = "0.53", features = ["proc_macro"] }
 md-5 = { version = "0.10", features = ["asm"] }
+sha2 = "0.10"
 enum-ordinalize = "4.3"
 
 tracing = "0.1"

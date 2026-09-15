@@ -16,6 +16,7 @@ use tracing_subscriber::filter::*;
 pub mod move_files;
 pub mod i18n;
 pub mod background;
+pub mod dlss;
 pub mod ui;
 
 use ui::main::*;
@@ -338,7 +339,7 @@ fn main() -> anyhow::Result<()> {
 
             match state {
                 LauncherState::Launch => {
-                    anime_launcher_sdk::zzz::game::run().expect("Failed to run the game");
+                    dlss::run_game().expect("Failed to run the game");
 
                     return Ok(());
                 }
@@ -346,7 +347,7 @@ fn main() -> anyhow::Result<()> {
                 LauncherState::PredownloadAvailable {
                     ..
                 } if just_run_game => {
-                    anime_launcher_sdk::zzz::game::run().expect("Failed to run the game");
+                    dlss::run_game().expect("Failed to run the game");
 
                     return Ok(());
                 }
