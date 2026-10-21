@@ -1,7 +1,23 @@
-use relm4::{
-    prelude::*,
-    Sender
-};
+// SPDX-License-Identifier: GPL-3.0-or-later
+//
+// sleepy-launcher
+// Copyright (C) 2021 - 2026  Nikita Podvirnyi <krypt0nn@dawn.wine>
+// Copyright (C) 2025 - 2026  @JohnTheCoolingFan <ivan8215145640@gmail.com>
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+use relm4::Sender;
 
 use gtk::glib::clone;
 
@@ -14,7 +30,7 @@ use super::{App, AppMsg};
 pub fn repair_game(sender: ComponentSender<App>, progress_bar_input: Sender<ProgressBarMsg>) {
     let config = Config::get().unwrap();
 
-    progress_bar_input.send(ProgressBarMsg::UpdateCaption(Some(tr!("verifying-files"))));
+    progress_bar_input.send(ProgressBarMsg::UpdateCaption(Some(i18n!("verifying-files"))));
     sender.input(AppMsg::SetDownloading(true));
 
     std::thread::spawn(move || {
@@ -92,7 +108,7 @@ pub fn repair_game(sender: ComponentSender<App>, progress_bar_input: Sender<Prog
                 if !broken.is_empty() {
                     let total = broken.len() as u64;
 
-                    progress_bar_input.send(ProgressBarMsg::UpdateCaption(Some(tr!("repairing-files"))));
+                    progress_bar_input.send(ProgressBarMsg::UpdateCaption(Some(i18n!("repairing-files"))));
                     progress_bar_input.send(ProgressBarMsg::DisplayFraction(false));
                     progress_bar_input.send(ProgressBarMsg::UpdateProgress(0, total));
 
@@ -103,7 +119,7 @@ pub fn repair_game(sender: ComponentSender<App>, progress_bar_input: Sender<Prog
 
                         if let Err(err) = file.repair(&game_path) {
                             sender.input(AppMsg::Toast {
-                                title: tr!("game-file-repairing-error"),
+                                title: i18n!("game-file-repairing-error"),
                                 description: Some(err.to_string())
                             });
 
@@ -121,7 +137,7 @@ pub fn repair_game(sender: ComponentSender<App>, progress_bar_input: Sender<Prog
                 tracing::error!("Failed to get inregrity failes: {err}");
 
                 sender.input(AppMsg::Toast {
-                    title: tr!("integrity-files-getting-error"),
+                    title: i18n!("integrity-files-getting-error"),
                     description: Some(err.to_string())
                 });
             }

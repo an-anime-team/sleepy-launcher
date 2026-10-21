@@ -1,6 +1,24 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+//
+// sleepy-launcher
+// Copyright (C) 2021 - 2026  Nikita Podvirnyi <krypt0nn@dawn.wine>
+// Copyright (C) 2025 - 2026  @JohnTheCoolingFan <ivan8215145640@gmail.com>
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 use std::path::{Path, PathBuf};
 
-use relm4::prelude::*;
 use relm4::Sender;
 
 use gtk::glib::clone;
@@ -40,10 +58,11 @@ fn latest_release_asset(repo: &str, suffix: &str) -> anyhow::Result<String> {
         let name = asset.get("name").and_then(|value| value.as_str());
         let url = asset.get("browser_download_url").and_then(|value| value.as_str());
 
-        if let (Some(name), Some(url)) = (name, url) {
-            if name.ends_with(suffix) {
-                return Ok(url.to_string());
-            }
+        if let Some(name) = name
+            && let Some(url) = url
+            && name.ends_with(suffix)
+        {
+            return Ok(url.to_string());
         }
     }
 
@@ -86,7 +105,7 @@ fn extract_archive(archive: &Path, dest: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
-// find the dir that directly holds the x64 folder to make up for 
+// find the dir that directly holds the x64 folder to make up for
 // whether the archive wraps its contents in a version folder
 fn find_arch_root(root: &Path) -> anyhow::Result<PathBuf> {
     if root.join("x64").is_dir() {
@@ -126,15 +145,14 @@ fn find_nvidia_wine_dll_dir() -> Option<PathBuf> {
                 continue;
             }
 
-            if let Some(path) = line.split("=>").nth(1) {
-                if let Ok(real) = PathBuf::from(path.trim()).canonicalize() {
-                    if let Some(parent) = real.parent() {
-                        let dir = parent.join("nvidia").join("wine");
+            if let Some(path) = line.split("=>").nth(1)
+                && let Ok(real) = PathBuf::from(path.trim()).canonicalize()
+                && let Some(parent) = real.parent()
+            {
+                let dir = parent.join("nvidia").join("wine");
 
-                        if dir.join("nvngx.dll").exists() {
-                            return Some(dir);
-                        }
-                    }
+                if dir.join("nvngx.dll").exists() {
+                    return Some(dir);
                 }
             }
         }
@@ -158,7 +176,7 @@ fn install_vkd3d(
     let extract_dir = temp.join("vkd3d-proton-extract");
 
     #[allow(unused_must_use)] {
-        progress_bar_input.send(ProgressBarMsg::UpdateCaption(Some(tr!("downloading"))));
+        progress_bar_input.send(ProgressBarMsg::UpdateCaption(Some(i18n!("downloading"))));
     }
 
     // start fresh so a previous failed attempt can't be resumed into
@@ -202,7 +220,7 @@ fn install_nvapi(
     let extract_dir = temp.join("dxvk-nvapi-extract");
 
     #[allow(unused_must_use)] {
-        progress_bar_input.send(ProgressBarMsg::UpdateCaption(Some(tr!("downloading"))));
+        progress_bar_input.send(ProgressBarMsg::UpdateCaption(Some(i18n!("downloading"))));
     }
 
     // start fresh so a previous failed attempt can't be resumed into
@@ -230,10 +248,8 @@ fn install_nvapi(
             for dll in ["nvngx.dll", "_nvngx.dll"] {
                 let src = nvidia_dir.join(dll);
 
-                if src.exists() {
-                    if let Err(err) = copy_dll(&src, system32) {
-                        tracing::warn!("Failed to copy {dll} from host nvidia driver: {err}");
-                    }
+                if src.exists() && let Err(err) = copy_dll(&src, system32) {
+                    tracing::warn!("Failed to copy {dll} from host nvidia driver: {err}");
                 }
             }
         }
@@ -284,7 +300,7 @@ pub fn install_dx12(sender: ComponentSender<App>, progress_bar_input: Sender<Pro
                         tracing::error!("Failed to install DX12 support: {err}");
 
                         sender.input(AppMsg::Toast {
-                            title: tr!("dx12-install-failed"),
+                            title: i18n!("dx12-install-failed"),
                             description: Some(err.to_string())
                         });
                     }
@@ -301,7 +317,7 @@ pub fn install_dx12(sender: ComponentSender<App>, progress_bar_input: Sender<Pro
         Ok(None) => {
             tracing::error!("Failed to get selected wine executable");
             sender.input(AppMsg::Toast {
-                title: tr!("failed-get-selected-wine"),
+                title: i18n!("failed-get-selected-wine"),
                 description: None
             });
         }
@@ -309,7 +325,7 @@ pub fn install_dx12(sender: ComponentSender<App>, progress_bar_input: Sender<Pro
         Err(err) => {
             tracing::error!("Failed to get selected wine executable: {err}");
             sender.input(AppMsg::Toast {
-                title: tr!("failed-get-selected-wine"),
+                title: i18n!("failed-get-selected-wine"),
                 description: Some(err.to_string())
             });
         }
