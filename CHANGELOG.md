@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Downgraded sophon-tools to a version that actually works
+
 ## [1.8.0] - 2026-10-28
 
 ### Changed
