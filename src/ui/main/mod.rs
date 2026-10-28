@@ -17,6 +17,9 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+use anime_launcher_sdk::anime_game_core::sophon::api::schemas::DownloadOrDiff;
+use anime_launcher_sdk::anime_game_core::sophon::api::schemas::sophon_diff::SophonDiff;
+use anime_launcher_sdk::anime_game_core::sophon::api::schemas::sophon_manifests::SophonDownloadInfo;
 use relm4::actions::*;
 use gtk::prelude::*;
 use adw::prelude::*;
@@ -355,15 +358,13 @@ impl SimpleComponent for App {
                                             #[watch]
                                             set_tooltip_text: Some(&i18n!("predownload-update", {
                                                 "version" => match model.state.as_ref() {
-                                                    Some(LauncherState::PredownloadAvailable { game, .. }) => game.latest().to_string(),
+                                                    Some(LauncherState::GameDiff(VersionDiff::Predownload { latest, .. })) => latest.to_string(),
                                                     _ => String::from("?")
                                                 },
 
                                                 "size" => match model.state.as_ref() {
-                                                    Some(LauncherState::PredownloadAvailable { game }) => {
-                                                        let size = game.downloaded_size().unwrap_or(0);
-
-                                                        prettify_bytes(size)
+                                                    Some(LauncherState::GameDiff(VersionDiff::Predownload { downloaded_size, .. })) => {
+                                                        prettify_bytes(*downloaded_size)
                                                     }
 
                                                     _ => String::from("?")
@@ -371,17 +372,30 @@ impl SimpleComponent for App {
                                             })),
 
                                             #[watch]
-                                            set_visible: matches!(model.state.as_ref(), Some(LauncherState::PredownloadAvailable { .. })),
+                                            set_visible: matches!(model.state.as_ref(), Some(LauncherState::GameDiff(VersionDiff::Predownload { .. }))),
 
                                             #[watch]
                                             set_sensitive: match model.state.as_ref() {
-                                                Some(LauncherState::PredownloadAvailable { game }) => {
+                                                Some(LauncherState::GameDiff(VersionDiff::Predownload { download_info, .. })) => {
                                                     let config = Config::get().unwrap();
                                                     let temp = config.launcher.temp.unwrap_or_else(std::env::temp_dir);
 
-                                                    let downloaded = temp.join(game.file_name().unwrap()).metadata()
-                                                        .map(|metadata| Some(metadata.len()) >= game.downloaded_size())
-                                                        .unwrap_or(false);
+                                                    let matching_field = match &**download_info {
+                                                        DownloadOrDiff::Patch(SophonDiff {
+                                                            matching_field, ..
+                                                        })
+                                                        | DownloadOrDiff::Download(SophonDownloadInfo {
+                                                            matching_field, ..
+                                                        }) => matching_field
+                                                    };
+
+                                                    // installer predownload is unused, so
+                                                    // this is only going to check in `updating`
+                                                    let downloaded = temp
+                                                        .join(format!("updating-{}", matching_field))
+                                                        .join(".predownloadcomplete")
+                                                        .metadata()
+                                                        .is_ok();
 
                                                     !downloaded
                                                 }
@@ -391,13 +405,26 @@ impl SimpleComponent for App {
 
                                             #[watch]
                                             set_css_classes: match model.state.as_ref() {
-                                                Some(LauncherState::PredownloadAvailable { game }) => {
+                                                Some(LauncherState::GameDiff(VersionDiff::Predownload { download_info, .. })) => {
                                                     let config = Config::get().unwrap();
                                                     let temp = config.launcher.temp.unwrap_or_else(std::env::temp_dir);
 
-                                                    let downloaded = temp.join(game.file_name().unwrap()).metadata()
-                                                        .map(|metadata| Some(metadata.len()) >= game.downloaded_size())
-                                                        .unwrap_or(false);
+                                                    let matching_field = match &**download_info {
+                                                        DownloadOrDiff::Patch(SophonDiff {
+                                                            matching_field, ..
+                                                        })
+                                                        | DownloadOrDiff::Download(SophonDownloadInfo {
+                                                            matching_field, ..
+                                                        }) => matching_field
+                                                    };
+
+                                                    // installer predownload is unused, so
+                                                    // this is only going to check in `updating`
+                                                    let downloaded = temp
+                                                        .join(format!("updating-{}", matching_field))
+                                                        .join(".predownloadcomplete")
+                                                        .metadata()
+                                                        .is_ok();
 
                                                     if downloaded {
                                                         &["success", "circular"]
@@ -427,7 +454,8 @@ impl SimpleComponent for App {
                                                 #[watch]
                                                 set_icon_name: match &model.state {
                                                     Some(LauncherState::Launch) |
-                                                    Some(LauncherState::PredownloadAvailable { .. }) => "media-playback-start-symbolic",
+                                                    Some(LauncherState::GameDiff(VersionDiff::Latest { .. })) |
+                                                    Some(LauncherState::GameDiff(VersionDiff::Predownload { .. })) => "media-playback-start-symbolic",
 
                                                     Some(LauncherState::FolderMigrationRequired { .. }) |
                                                     Some(LauncherState::WineNotInstalled) |
@@ -435,54 +463,29 @@ impl SimpleComponent for App {
                                                     Some(LauncherState::DxvkNotInstalled) |
                                                     Some(LauncherState::Dx12NotInstalled) => "document-save-symbolic",
 
-                                                    Some(LauncherState::GameUpdateAvailable(_)) |
-                                                    Some(LauncherState::GameNotInstalled(_)) |
-                                                    Some(LauncherState::VoiceUpdateAvailable(_)) |
-                                                    Some(LauncherState::VoiceNotInstalled(_)) => "document-save-symbolic",
+                                                    Some(LauncherState::GameDiff(VersionDiff::Diff {..})) |
+                                                    Some(LauncherState::GameDiff(VersionDiff::NotInstalled {..})) => "document-save-symbolic",
 
-                                                    Some(LauncherState::TelemetryNotDisabled) => "security-high-symbolic",
-
-                                                    Some(LauncherState::GameOutdated(_)) |
-                                                    Some(LauncherState::VoiceOutdated(_)) |
+                                                    Some(LauncherState::GameDiff(VersionDiff::Outdated {..})) |
                                                     None => "window-close-symbolic"
                                                 },
 
                                                 #[watch]
                                                 set_label: &match &model.state {
-                                                    Some(LauncherState::Launch) |
-                                                    Some(LauncherState::PredownloadAvailable { .. }) => i18n!("launch"),
+                                                    Some(LauncherState::Launch) | Some(LauncherState::GameDiff(VersionDiff::Latest { .. })) |
+                                                    Some(LauncherState::GameDiff(VersionDiff::Predownload { .. })) => i18n!("launch"),
 
                                                     Some(LauncherState::FolderMigrationRequired { .. }) => i18n!("migrate-folders"),
-                                                    Some(LauncherState::TelemetryNotDisabled) => i18n!("disable-telemetry"),
 
                                                     Some(LauncherState::WineNotInstalled) => i18n!("download-wine"),
                                                     Some(LauncherState::PrefixNotExists)  => i18n!("create-prefix"),
                                                     Some(LauncherState::DxvkNotInstalled) => i18n!("install-dxvk"),
                                                     Some(LauncherState::Dx12NotInstalled) => i18n!("install-dx12"),
 
-                                                    Some(LauncherState::GameUpdateAvailable(diff)) |
-                                                    Some(LauncherState::GameOutdated(diff)) |
-                                                    Some(LauncherState::VoiceUpdateAvailable(diff)) |
-                                                    Some(LauncherState::VoiceOutdated(diff)) => {
-                                                        match (Config::get(), diff.file_name()) {
-                                                            (Ok(config), Some(filename)) => {
-                                                                let temp = config.launcher.temp.unwrap_or_else(std::env::temp_dir);
+                                                    Some(LauncherState::GameDiff(VersionDiff::Diff { .. })) |
+                                                    Some(LauncherState::GameDiff(VersionDiff::Outdated { .. })) => i18n!("update"),
 
-                                                                if temp.join(filename).exists() {
-                                                                    i18n!("resume")
-                                                                }
-
-                                                                else {
-                                                                    i18n!("update")
-                                                                }
-                                                            }
-
-                                                            _ => i18n!("update")
-                                                        }
-                                                    },
-
-                                                    Some(LauncherState::GameNotInstalled(_)) |
-                                                    Some(LauncherState::VoiceNotInstalled(_)) => i18n!("download"),
+                                                    Some(LauncherState::GameDiff(VersionDiff::NotInstalled { .. })) => i18n!("download"),
 
                                                     None => String::from("...")
                                                 }
@@ -490,8 +493,7 @@ impl SimpleComponent for App {
 
                                             #[watch]
                                             set_sensitive: !model.disabled_buttons && match &model.state {
-                                                Some(LauncherState::GameOutdated { .. }) |
-                                                Some(LauncherState::VoiceOutdated(_)) => false,
+                                                Some(LauncherState::GameDiff(VersionDiff::Outdated { .. })) => false,
 
                                                 Some(_) => true,
                                                 None => false
@@ -499,8 +501,7 @@ impl SimpleComponent for App {
 
                                             #[watch]
                                             set_css_classes: match &model.state {
-                                                Some(LauncherState::GameOutdated { .. }) |
-                                                Some(LauncherState::VoiceOutdated(_)) => &["warning", "pill"],
+                                                Some(LauncherState::GameDiff(VersionDiff::Outdated { .. })) => &["warning", "pill"],
 
                                                 Some(_) => &["suggested-action", "pill"],
                                                 None => &["pill"]
@@ -508,8 +509,7 @@ impl SimpleComponent for App {
 
                                             #[watch]
                                             set_tooltip_text: Some(&match &model.state {
-                                                Some(LauncherState::GameOutdated { .. }) |
-                                                Some(LauncherState::VoiceOutdated(_)) => i18n!("main-window--version-outdated-tooltip"),
+                                                Some(LauncherState::GameDiff(VersionDiff::Outdated { .. })) => i18n!("main-window--version-outdated-tooltip"),
 
                                                 Some(LauncherState::FolderMigrationRequired { .. }) => i18n!("migrate-folders-tooltip"),
 
@@ -631,7 +631,7 @@ impl SimpleComponent for App {
 
                                         #[watch]
                                         set_visible: matches!(model.state.as_ref(),
-                                            Some(LauncherState::GameNotInstalled(_))
+                                            Some(LauncherState::GameDiff(VersionDiff::NotInstalled { .. }))
                                         ) && !model.kill_game_button,
 
                                         #[name = "import_game_button"]
@@ -787,12 +787,12 @@ impl SimpleComponent for App {
                     Ok(config) => config
                         .game
                         .path
-                        .for_edition(config.launcher.edition)
+                        .for_edition(&config.launcher.edition)
                         .to_path_buf(),
                     Err(_) => CONFIG
                         .game
                         .path
-                        .for_edition(CONFIG.launcher.edition)
+                        .for_edition(&CONFIG.launcher.edition)
                         .to_path_buf()
                 };
 
@@ -852,7 +852,7 @@ impl SimpleComponent for App {
                         let web_cache = config
                             .game
                             .path
-                            .for_edition(config.launcher.edition)
+                            .for_edition(&config.launcher.edition)
                             .join(config.launcher.edition.data_folder())
                             .join("webCaches");
 
@@ -1113,28 +1113,15 @@ impl SimpleComponent for App {
                     self.disabled_buttons = true;
                 }
 
-                let updater = clone!(
-                    #[strong]
-                    sender,
-                    move |state| {
-                        if show_status_page {
-                            match state {
-                                StateUpdating::Game => {
-                                    sender.input(AppMsg::SetLoadingStatus(Some(Some(i18n!(
-                                        "loading-launcher-state--game"
-                                    )))));
-                                }
-                            }
-                        }
-                    }
-                );
-
-                let state = match LauncherState::get_from_config(updater) {
+                let state = match LauncherState::get_from_config() {
                     Ok(state) => Some(state),
                     Err(err) => {
                         tracing::error!("Failed to update launcher state: {err}");
 
-                        self.toast(i18n!("launcher-state-updating-error"), Some(err.to_string()));
+                        self.toast(
+                            i18n!("launcher-state-updating-error"),
+                            Some(err.to_string())
+                        );
 
                         None
                     }
@@ -1151,12 +1138,12 @@ impl SimpleComponent for App {
 
                 if let Some(state) = state {
                     match state {
-                        LauncherState::GameUpdateAvailable(_)
-                        | LauncherState::GameNotInstalled(_)
-                        | LauncherState::VoiceUpdateAvailable(_)
-                        | LauncherState::VoiceNotInstalled(_)
-                            if perform_on_download_needed =>
-                        {
+                        LauncherState::GameDiff(VersionDiff::Diff {
+                            ..
+                        })
+                        | LauncherState::GameDiff(VersionDiff::NotInstalled {
+                            ..
+                        }) if perform_on_download_needed => {
                             sender.input(AppMsg::PerformAction);
                         }
 
@@ -1228,7 +1215,9 @@ impl SimpleComponent for App {
                 let config = Config::get().unwrap();
                 let prefix = config.game.wine.prefix.clone();
 
-                if prefix.exists() && let Err(err) = std::fs::remove_dir_all(&prefix) {
+                if prefix.exists()
+                    && let Err(err) = std::fs::remove_dir_all(&prefix)
+                {
                     tracing::error!("Failed to remove wine prefix: {err}");
 
                     sender.input(AppMsg::Toast {
@@ -1267,10 +1256,14 @@ impl SimpleComponent for App {
 
             #[allow(unused_must_use)]
             AppMsg::PredownloadUpdate => {
-                if let Some(LauncherState::PredownloadAvailable {
-                    mut game
-                }) = self.state.clone()
+                if let Some(LauncherState::GameDiff(VersionDiff::Predownload {
+                    ..
+                })) = self.state.clone()
                 {
+                    let Some(LauncherState::GameDiff(mut game)) = self.state.clone()
+                    else {
+                        unreachable!()
+                    };
                     let tmp = Config::get()
                         .unwrap()
                         .launcher
@@ -1317,9 +1310,12 @@ impl SimpleComponent for App {
 
             AppMsg::PerformAction => unsafe {
                 match self.state.as_ref().unwrap_unchecked() {
-                    LauncherState::PredownloadAvailable {
+                    LauncherState::GameDiff(VersionDiff::Predownload {
                         ..
-                    }
+                    })
+                    | LauncherState::GameDiff(VersionDiff::Latest {
+                        ..
+                    })
                     | LauncherState::Launch => launch::launch(sender),
 
                     LauncherState::FolderMigrationRequired {
@@ -1332,10 +1328,6 @@ impl SimpleComponent for App {
                         to.to_owned(),
                         cleanup_folder.to_owned()
                     ),
-
-                    LauncherState::TelemetryNotDisabled => {
-                        disable_telemetry::disable_telemetry(sender)
-                    }
 
                     LauncherState::WineNotInstalled => {
                         download_wine::download_wine(sender, self.progress_bar.sender().to_owned())
@@ -1350,16 +1342,26 @@ impl SimpleComponent for App {
                         install_dx12::install_dx12(sender, self.progress_bar.sender().to_owned())
                     }
 
-                    LauncherState::GameUpdateAvailable(diff)
-                    | LauncherState::GameNotInstalled(diff)
-                    | LauncherState::VoiceUpdateAvailable(diff)
-                    | LauncherState::VoiceNotInstalled(diff) => download_diff::download_diff(
-                        sender,
-                        self.progress_bar.sender().to_owned(),
-                        diff.to_owned()
-                    ),
+                    LauncherState::GameDiff(VersionDiff::Diff {
+                        ..
+                    })
+                    | LauncherState::GameDiff(VersionDiff::NotInstalled {
+                        ..
+                    }) => {
+                        let LauncherState::GameDiff(diff) = self.state.as_ref().unwrap()
+                        else {
+                            unreachable!()
+                        };
+                        download_diff::download_diff(
+                            sender,
+                            self.progress_bar.sender().to_owned(),
+                            diff.to_owned()
+                        )
+                    }
 
-                    LauncherState::GameOutdated(_) | LauncherState::VoiceOutdated(_) => ()
+                    LauncherState::GameDiff(VersionDiff::Outdated {
+                        ..
+                    }) => ()
                 }
             },
 

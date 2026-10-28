@@ -22,7 +22,6 @@ use std::sync::LazyLock;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use relm4::prelude::*;
-
 use anime_launcher_sdk::config::ConfigExt;
 use anime_launcher_sdk::zzz::config::{Config, Schema};
 use anime_launcher_sdk::zzz::states::LauncherState;
@@ -31,7 +30,6 @@ use anime_launcher_sdk::anime_game_core::prelude::*;
 use anime_launcher_sdk::anime_game_core::zzz::prelude::*;
 use anime_launcher_sdk::sessions::SessionsExt;
 use anime_launcher_sdk::zzz::sessions::Sessions;
-
 use tracing_subscriber::prelude::*;
 use tracing_subscriber::filter::*;
 
@@ -64,72 +62,92 @@ pub fn is_wayland_available() -> bool {
         return true;
     }
 
-    let Some(runtime_dir) = std::env::var_os("XDG_RUNTIME_DIR") else {
+    let Some(runtime_dir) = std::env::var_os("XDG_RUNTIME_DIR")
+    else {
         return false;
     };
 
-    std::path::Path::new(&runtime_dir).join("wayland-0").exists()
+    std::path::Path::new(&runtime_dir)
+        .join("wayland-0")
+        .exists()
 }
 
 /// Config loaded on the app's start. Use `Config::get()` to get up to date
 /// config instead. This one is used to prepare some launcher UI components on
 /// startup.
-pub static CONFIG: LazyLock<Schema> = LazyLock::new(|| {
-    Config::get().expect("Failed to load config")
-});
+pub static CONFIG: LazyLock<Schema> =
+    LazyLock::new(|| Config::get().expect("Failed to load config"));
 
-pub static STARTUP_LANG: LazyLock<agl_locale::unic_langid::LanguageIdentifier> = LazyLock::new(|| {
-    CONFIG.launcher.language.parse()
-        .unwrap_or_else(|_| agl_locale::SYSTEM_LANG.clone())
-});
+pub static STARTUP_LANG: LazyLock<agl_locale::unic_langid::LanguageIdentifier> =
+    LazyLock::new(|| {
+        CONFIG
+            .launcher
+            .language
+            .parse()
+            .unwrap_or_else(|_| agl_locale::SYSTEM_LANG.clone())
+    });
 
 pub static GAME: LazyLock<Game> = LazyLock::new(|| {
     Game::new(
-        CONFIG.game.path.for_edition(CONFIG.launcher.edition),
+        CONFIG.game.path.for_edition(&CONFIG.launcher.edition),
         CONFIG.launcher.edition
     )
 });
 
 /// Path to launcher folder. Standard is `$HOME/.local/share/sleepy-launcher`
-pub static LAUNCHER_FOLDER: LazyLock<PathBuf> = LazyLock::new(|| {
-    launcher_dir().expect("Failed to get launcher folder")
-});
+pub static LAUNCHER_FOLDER: LazyLock<PathBuf> =
+    LazyLock::new(|| launcher_dir().expect("Failed to get launcher folder"));
 
 /// Path to launcher's cache folder. Standard is `$HOME/.cache/sleepy-launcher`
-pub static CACHE_FOLDER: LazyLock<PathBuf> = LazyLock::new(|| {
-    cache_dir().expect("Failed to get launcher's cache folder")
-});
+pub static CACHE_FOLDER: LazyLock<PathBuf> =
+    LazyLock::new(|| cache_dir().expect("Failed to get launcher's cache folder"));
 
-/// Path to `debug.log` file. Standard is `$HOME/.local/share/sleepy-launcher/debug.log`
+/// Path to `debug.log` file. Standard is
+/// `$HOME/.local/share/sleepy-launcher/debug.log`
 pub static DEBUG_FILE: LazyLock<PathBuf> = LazyLock::new(|| LAUNCHER_FOLDER.join("debug.log"));
 
-/// Path to `background` file. Standard is `$HOME/.local/share/sleepy-launcher/background`
-pub static BACKGROUND_FILE: LazyLock<PathBuf> = LazyLock::new(|| LAUNCHER_FOLDER.join("background"));
+/// Path to `background` file. Standard is
+/// `$HOME/.local/share/sleepy-launcher/background`
+pub static BACKGROUND_FILE: LazyLock<PathBuf> =
+    LazyLock::new(|| LAUNCHER_FOLDER.join("background"));
 
-/// Path to `background-overlat` file. Standard is `$HOME/.local/share/sleepy-launcher/background-overlay`
-pub static BACKGROUND_OVERLAY_FILE: LazyLock<PathBuf> = LazyLock::new(|| LAUNCHER_FOLDER.join("background-overlay"));
+/// Path to `background-overlat` file. Standard is
+/// `$HOME/.local/share/sleepy-launcher/background-overlay`
+pub static BACKGROUND_OVERLAY_FILE: LazyLock<PathBuf> =
+    LazyLock::new(|| LAUNCHER_FOLDER.join("background-overlay"));
 
-/// Path to the processed `background` file. Standard is `$HOME/.cache/sleepy-launcher/background`
-pub static PROCESSED_BACKGROUND_FILE: LazyLock<PathBuf> = LazyLock::new(|| CACHE_FOLDER.join("background"));
+/// Path to the processed `background` file. Standard is
+/// `$HOME/.cache/sleepy-launcher/background`
+pub static PROCESSED_BACKGROUND_FILE: LazyLock<PathBuf> =
+    LazyLock::new(|| CACHE_FOLDER.join("background"));
 
-/// Path to the processed `background-overlay` file. Standard is `$HOME/.cache/sleepy-launcher/background-overlay`
-pub static PROCESSED_BACKGROUND_OVERLAY_FILE: LazyLock<PathBuf> = LazyLock::new(|| CACHE_FOLDER.join("background-overlay"));
+/// Path to the processed `background-overlay` file. Standard is
+/// `$HOME/.cache/sleepy-launcher/background-overlay`
+pub static PROCESSED_BACKGROUND_OVERLAY_FILE: LazyLock<PathBuf> =
+    LazyLock::new(|| CACHE_FOLDER.join("background-overlay"));
 
-/// Path to the processed `background-video` file. Standard is `$HOME/.cache/sleepy-launcher/background-video`
-pub static BACKGROUND_VIDEO_FILE: LazyLock<PathBuf> = LazyLock::new(|| CACHE_FOLDER.join("background-video"));
+/// Path to the processed `background-video` file. Standard is
+/// `$HOME/.cache/sleepy-launcher/background-video`
+pub static BACKGROUND_VIDEO_FILE: LazyLock<PathBuf> =
+    LazyLock::new(|| CACHE_FOLDER.join("background-video"));
 
-/// Path to `.keep-background` file. Used to mark launcher that it shouldn't update background picture
+/// Path to `.keep-background` file. Used to mark launcher that it shouldn't
+/// update background picture
 ///
 /// Standard is `$HOME/.local/share/sleepy-launcher/.keep-background`
-pub static KEEP_BACKGROUND_FILE: LazyLock<PathBuf> = LazyLock::new(|| LAUNCHER_FOLDER.join(".keep-background"));
+pub static KEEP_BACKGROUND_FILE: LazyLock<PathBuf> =
+    LazyLock::new(|| LAUNCHER_FOLDER.join(".keep-background"));
 
-/// Path to `.first-run` file. Used to mark launcher that it should run FirstRun window
+/// Path to `.first-run` file. Used to mark launcher that it should run FirstRun
+/// window
 ///
 /// Standard is `$HOME/.local/share/sleepy-launcher/.first-run`
 pub static FIRST_RUN_FILE: LazyLock<PathBuf> = LazyLock::new(|| LAUNCHER_FOLDER.join(".first-run"));
 
 /// Global app's css
-static GLOBAL_CSS: LazyLock<String> = LazyLock::new(|| format!("
+static GLOBAL_CSS: LazyLock<String> = LazyLock::new(|| {
+    format!(
+        "
     progressbar > text {{
         margin-bottom: 6px;
         font-weight: bold;
@@ -187,14 +205,16 @@ static GLOBAL_CSS: LazyLock<String> = LazyLock::new(|| format!("
         border-radius: 24px;
     }}
     ",
-    PROCESSED_BACKGROUND_OVERLAY_FILE.to_string_lossy(),
-    PROCESSED_BACKGROUND_FILE.to_string_lossy(),
-    PROCESSED_BACKGROUND_OVERLAY_FILE.to_string_lossy()
- ));
+        PROCESSED_BACKGROUND_OVERLAY_FILE.to_string_lossy(),
+        PROCESSED_BACKGROUND_FILE.to_string_lossy(),
+        PROCESSED_BACKGROUND_OVERLAY_FILE.to_string_lossy()
+    )
+});
 
 /// Actually document the launcher's command line options
 fn print_help() {
-    println!(r#"
+    println!(
+        r#"
 Sleepy Launcher {APP_VERSION}
 
 Usage:
@@ -211,7 +231,8 @@ Options:
   --session <NAME>      Switch to the given session before starting
 
 GTK options are supported as well. Use --help-all to list them.
-    "#);
+    "#
+    );
 }
 
 fn main() -> anyhow::Result<()> {
@@ -231,8 +252,8 @@ fn main() -> anyhow::Result<()> {
 
     // Create launcher folder if it doesn't exist.
     if !LAUNCHER_FOLDER.exists() {
-        // check if the location is a symlink. [Path::exists] resolves the symlink and
-        // returns whether its *target* exists or not.
+        // check if the location is a symlink. [Path::exists] resolves the
+        // symlink and returns whether its *target* exists or not.
         if LAUNCHER_FOLDER.is_symlink() {
             eprintln!(
                 "{} is a broken symlink, meaning the directory it is pointing to does not exist, cannot proceed.",
@@ -248,7 +269,8 @@ fn main() -> anyhow::Result<()> {
         std::fs::write(FIRST_RUN_FILE.as_path(), "").expect("Failed to create .first-run file");
 
         // Set initial launcher language based on system language
-        // CONFIG is initialized lazily so it will contain following changes as well
+        // CONFIG is initialized lazily so it will contain following changes as
+        // well
         let mut config = Config::get().expect("Failed to get config");
 
         config.launcher.language = agl_locale::SYSTEM_LANG.to_string();
@@ -270,7 +292,7 @@ fn main() -> anyhow::Result<()> {
     }
 
     // Force debug output
-    let mut force_debug = false;
+    let mut force_debug = 0;
 
     // Run the game
     let mut run_game = false;
@@ -287,7 +309,7 @@ fn main() -> anyhow::Result<()> {
     // Parse arguments
     for i in 0..args.len() {
         match args[i].as_str() {
-            "--debug" => force_debug = true,
+            "--debug" => force_debug += 1,
             "--run-game" => run_game = true,
             "--just-run-game" => just_run_game = true,
             "--no-verbose-tracing" => no_verbose_tracing = true,
@@ -305,25 +327,47 @@ fn main() -> anyhow::Result<()> {
 
     // Prepare stdout logger
     let stdout = tracing_subscriber::fmt::layer()
+        .pretty()
         .with_filter({
-            if APP_DEBUG || force_debug {
+            if force_debug >= 2 {
                 LevelFilter::TRACE
+            }
+            else if APP_DEBUG || force_debug >= 1 {
+                LevelFilter::DEBUG
             }
             else {
                 LevelFilter::WARN
             }
         })
         .with_filter(filter_fn(move |metadata| {
-            !metadata.target().contains("rustls") && !no_verbose_tracing
+            !metadata.target().contains("rustls")
+                && !metadata.target().contains("reqwest")
+                && !metadata.target().contains("h2")
+                && !metadata.target().contains("hyper_util")
+                && !no_verbose_tracing
         }));
 
     // Prepare debug file logger
     let file = std::fs::File::create(DEBUG_FILE.as_path())?;
 
     let debug_log = tracing_subscriber::fmt::layer()
+        .pretty()
         .with_ansi(false)
         .with_writer(std::sync::Arc::new(file))
-        .with_filter(filter_fn(|metadata| !metadata.target().contains("rustls")));
+        .with_filter({
+            if force_debug >= 2 {
+                LevelFilter::TRACE
+            }
+            else {
+                LevelFilter::DEBUG
+            }
+        })
+        .with_filter(filter_fn(|metadata| {
+            !metadata.target().contains("rustls")
+                && !metadata.target().contains("reqwest")
+                && !metadata.target().contains("h2")
+                && !metadata.target().contains("hyper_util")
+        }));
 
     tracing_subscriber::registry()
         .with(stdout)
@@ -360,8 +404,7 @@ fn main() -> anyhow::Result<()> {
     // Run the app if everything's ready
     else {
         if run_game || just_run_game {
-            let state =
-                LauncherState::get_from_config(|_| {}).expect("Failed to get launcher state");
+            let state = LauncherState::get_from_config().expect("Failed to get launcher state");
 
             match state {
                 LauncherState::Launch => {
@@ -370,9 +413,9 @@ fn main() -> anyhow::Result<()> {
                     return Ok(());
                 }
 
-                LauncherState::PredownloadAvailable {
+                LauncherState::GameDiff(VersionDiff::Predownload {
                     ..
-                } if just_run_game => {
+                }) if just_run_game => {
                     anime_launcher_sdk::zzz::game::run().expect("Failed to run the game");
 
                     return Ok(());
