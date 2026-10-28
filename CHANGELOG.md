@@ -13,9 +13,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.8.0] - 2026-10-28
 
+### Fixed
+
+- Fixed app icon rendering during loading
+
 ### Changed
 
 - Migrated to sophon-tools.
+- Updated dependencies
 
 ## [1.7.1] - 2026-09-11
 
