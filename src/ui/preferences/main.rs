@@ -22,7 +22,6 @@ use relm4::prelude::*;
 use gtk::prelude::*;
 use adw::prelude::*;
 
-use anime_launcher_sdk::anime_game_core::zzz::prelude::*;
 use anime_launcher_sdk::config::ConfigExt;
 use anime_launcher_sdk::zzz::config::Config;
 use anime_launcher_sdk::zzz::config::schema::launcher::LauncherStyle;
@@ -41,10 +40,9 @@ pub struct PreferencesApp {
 
 #[derive(Debug, Clone)]
 pub enum PreferencesAppMsg {
-    /// Supposed to be called automatically on app's run when the latest game version
-    /// was retrieved from the API
-    SetGameDiff(Option<VersionDiff>),
     SetLauncherStyle(LauncherStyle),
+    UpdateGameVersion,
+    ReloadComponents,
     SetVideoBackground(bool),
     SetBackgroundIndex(u8),
 
@@ -123,8 +121,13 @@ impl SimpleAsyncComponent for PreferencesApp {
         tracing::debug!("Called preferences window event: {:?}", msg);
 
         match msg {
-            PreferencesAppMsg::SetGameDiff(diff) => {
-                self.general.emit(GeneralAppMsg::SetGameDiff(diff));
+            #[allow(unused_must_use)]
+            PreferencesAppMsg::UpdateGameVersion => {
+                self.general.emit(GeneralAppMsg::UpdateGameVersion);
+            }
+
+            PreferencesAppMsg::ReloadComponents => {
+                self.general.emit(GeneralAppMsg::ReloadComponents);
             }
 
             #[allow(unused_must_use)]
@@ -151,19 +154,21 @@ impl SimpleAsyncComponent for PreferencesApp {
             }
 
             #[allow(unused_must_use)]
-            PreferencesAppMsg::RepairGame => unsafe {
-                // I honestly don't care anymore.
-                #[allow(static_mut_refs)]
-                PREFERENCES_WINDOW.as_ref().unwrap_unchecked().close();
+            #[allow(static_mut_refs)]
+            PreferencesAppMsg::RepairGame => {
+                if let Some(window) = unsafe { PREFERENCES_WINDOW.as_ref() } {
+                    window.close();
+                }
 
                 sender.output(Self::Output::RepairGame);
             }
 
             #[allow(unused_must_use)]
-            PreferencesAppMsg::RemakePrefix => unsafe {
-                // I honestly don't care anymore.
-                #[allow(static_mut_refs)]
-                PREFERENCES_WINDOW.as_ref().unwrap_unchecked().close();
+            #[allow(static_mut_refs)]
+            PreferencesAppMsg::RemakePrefix => {
+                if let Some(window) = unsafe { PREFERENCES_WINDOW.as_ref() } {
+                    window.close();
+                }
 
                 sender.output(Self::Output::RemakePrefix);
             }
@@ -202,7 +207,9 @@ impl SimpleAsyncComponent for PreferencesApp {
                 }
 
                 #[allow(static_mut_refs)]
-                PREFERENCES_WINDOW.as_ref().unwrap_unchecked().add_toast(toast);
+                if let Some(window) = PREFERENCES_WINDOW.as_ref() {
+                    window.add_toast(toast);
+                }
             }
         }
     }

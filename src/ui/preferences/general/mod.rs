@@ -26,7 +26,7 @@ use anime_launcher_sdk::config::ConfigExt;
 use anime_launcher_sdk::zzz::config::Config;
 use anime_launcher_sdk::zzz::config::schema::prelude::*;
 
-use anime_launcher_sdk::anime_game_core::zzz::consts::GameEdition;
+use anime_launcher_sdk::anime_game_core::sophon_tools::region::SophonRegion;
 use anime_launcher_sdk::zzz::env_emulation::Environment;
 
 pub mod components;
@@ -42,21 +42,22 @@ use super::main::PreferencesAppMsg;
 pub struct GeneralApp {
     components_page: AsyncController<ComponentsPage>,
 
-    game_diff: Option<VersionDiff>,
     style: LauncherStyle,
     use_video_background: bool,
     background_index: u8,
-    languages: Vec<String>
+    languages: Vec<String>,
+
+    game_version: String
 }
 
 #[derive(Debug, Clone)]
 pub enum GeneralAppMsg {
-    /// Supposed to be called automatically on app's run when the latest game version
-    /// was retrieved from the API
-    SetGameDiff(Option<VersionDiff>),
-
     UpdateDownloadedWine,
     UpdateDownloadedDxvk,
+
+    SetGameVersion(Option<String>),
+    UpdateGameVersion,
+    ReloadComponents,
 
     RepairGame,
     RemakePrefix,
@@ -66,6 +67,12 @@ pub enum GeneralAppMsg {
 
     UpdateLauncherStyle(LauncherStyle),
     SetVideoBackground(bool),
+
+    /// Internal: apply launcher style after the background picture is ready.
+    ApplyLauncherStyle(LauncherStyle),
+
+    /// Internal: apply video background setting after the background is ready.
+    ApplyVideoBackground(bool),
 
     WineOpen(&'static [&'static str]),
 
@@ -226,15 +233,19 @@ impl SimpleAsyncComponent for GeneralApp {
                         &i18n!("china")
                     ])),
 
-                    set_selected: GameEdition::list().iter()
-                        .position(|edition| edition == &CONFIG.launcher.edition)
-                        .unwrap() as u32,
+                    set_selected: match CONFIG.launcher.edition {
+                        SophonRegion::Global => 0,
+                        SophonRegion::China  => 1
+                    },
 
                     connect_selected_notify[sender] => move |row| {
                         if is_ready() {
                             #[allow(unused_must_use)]
                             if let Ok(mut config) = Config::get() {
-                                config.launcher.edition = GameEdition::list()[row.selected() as usize];
+                                config.launcher.edition = match row.selected() {
+                                    0 => SophonRegion::Global,
+                                    _ => SophonRegion::China
+                                };
 
                                 Config::update(config);
 
@@ -295,6 +306,7 @@ impl SimpleAsyncComponent for GeneralApp {
                 }
             },
 
+            // TODO: game version status requires the new game diff API.
             add = &adw::PreferencesGroup {
                 set_title: &i18n!("status"),
 
@@ -303,56 +315,78 @@ impl SimpleAsyncComponent for GeneralApp {
 
                     add_suffix = &gtk::Label {
                         #[watch]
-                        set_text: &match model.game_diff.as_ref() {
-                            Some(diff) => match diff {
-                                VersionDiff::Latest { version: current, .. } |
-                                VersionDiff::Predownload { current, .. } |
-                                VersionDiff::Diff { current, .. } |
-                                VersionDiff::Outdated { current, .. } => current.to_string(),
+                        set_text: &model.game_version
+                    }
+                }
+            },
 
-                                VersionDiff::NotInstalled { .. } => i18n!("game-not-installed")
-                            }
+            add = &adw::PreferencesGroup {
+                set_title: &i18n!("game-downloader"),
 
-                            None => String::from("?")
-                        },
+                adw::SpinRow {
+                    set_title: &i18n!("sophon_tools_settings_target_memory_usage_title"),
+                    set_subtitle: &i18n!("sophon_tools_settings_target_memory_usage_description"),
 
-                        #[watch]
-                        set_css_classes: match model.game_diff.as_ref() {
-                            Some(diff) => match diff {
-                                VersionDiff::Latest { .. }       => &["success"],
-                                VersionDiff::Predownload { .. }  => &["accent"],
-                                VersionDiff::Diff { .. }         => &["warning"],
-                                VersionDiff::Outdated { .. }     => &["error"],
-                                VersionDiff::NotInstalled { .. } => &[]
-                            }
+                    set_digits: 0,
+                    set_numeric: true,
+                    set_climb_rate: 64.0,
 
-                            None => &[]
-                        },
+                    set_adjustment: Some(&gtk::Adjustment::new(
+                        CONFIG.launcher.downloader.target_memory_usage as f64,
+                        0.0,
+                        65536.0,
+                        64.0,
+                        512.0,
+                        0.0
+                    )),
 
-                        #[watch]
-                        set_tooltip_text: Some(&match model.game_diff.as_ref() {
-                            Some(diff) => match diff {
-                                VersionDiff::Latest { .. } => String::new(),
+                    connect_value_notify => |row| {
+                        if is_ready() && let Ok(mut config) = Config::get() {
+                            config.launcher.downloader.target_memory_usage = row.value() as u64;
 
-                                VersionDiff::Predownload { current, latest, .. } => i18n!("game-predownload-available", {
-                                    "old" => current.to_string(),
-                                    "new" => latest.to_string()
-                                }),
+                            Config::update(config);
+                        }
+                    }
+                },
 
-                                VersionDiff::Diff { current, latest, .. } => i18n!("game-update-available", {
-                                    "old" => current.to_string(),
-                                    "new" => latest.to_string()
-                                }),
+                adw::SpinRow {
+                    set_title: &i18n!("sophon_tools_settings_max_parallel_streams_title"),
+                    set_subtitle: &i18n!("sophon_tools_settings_max_parallel_streams_description"),
 
-                                VersionDiff::Outdated { latest, ..} => i18n!("game-outdated", {
-                                    "latest" => latest.to_string()
-                                }),
+                    set_digits: 0,
+                    set_numeric: true,
+                    set_climb_rate: 1.0,
 
-                                VersionDiff::NotInstalled { .. } => String::new()
-                            }
+                    set_adjustment: Some(&gtk::Adjustment::new(
+                        CONFIG.launcher.downloader.max_parallel_streams as f64,
+                        0.0,
+                        1024.0,
+                        1.0,
+                        16.0,
+                        0.0
+                    )),
 
-                            None => String::new()
-                        })
+                    connect_value_notify => |row| {
+                        if is_ready() && let Ok(mut config) = Config::get() {
+                            config.launcher.downloader.max_parallel_streams = row.value() as u16;
+
+                            Config::update(config);
+                        }
+                    }
+                },
+
+                adw::SwitchRow {
+                    set_title: &i18n!("sophon_tools_settings_fast_verify_title"),
+                    set_subtitle: &i18n!("sophon_tools_settings_fast_verify_description"),
+
+                    set_active: CONFIG.launcher.downloader.fast_verify,
+
+                    connect_active_notify => |row| {
+                        if is_ready() && let Ok(mut config) = Config::get() {
+                            config.launcher.downloader.fast_verify = row.is_active();
+
+                            Config::update(config);
+                        }
                     }
                 }
             },
@@ -480,16 +514,19 @@ impl SimpleAsyncComponent for GeneralApp {
                 .launch(())
                 .forward(sender.input_sender(), std::convert::identity),
 
-            game_diff: None,
             style: CONFIG.launcher.style,
             use_video_background: CONFIG.launcher.video_background,
             background_index: CONFIG.launcher.background_index,
-            languages: SUPPORTED_LANGUAGES.iter().map(|lang| i18n!(format_lang(lang).as_str())).collect()
+            languages: SUPPORTED_LANGUAGES.iter().map(|lang| i18n!(format_lang(lang).as_str())).collect(),
+
+            game_version: String::from("?")
         };
 
         let components_page = model.components_page.widget();
 
         let widgets = view_output!();
+
+        Self::update_game_version(sender.clone());
 
         AsyncComponentParts { model, widgets }
     }
@@ -498,104 +535,120 @@ impl SimpleAsyncComponent for GeneralApp {
         tracing::debug!("Called general settings event: {:?}", msg);
 
         match msg {
-            GeneralAppMsg::SetGameDiff(diff) => {
-                self.game_diff = diff;
+            GeneralAppMsg::UpdateDownloadedWine => {
+                let _ = self.components_page.sender()
+                    .send(ComponentsPageMsg::UpdateDownloadedWine);
             }
 
-            GeneralAppMsg::UpdateDownloadedWine => {
-                self.components_page.sender()
-                    .send(ComponentsPageMsg::UpdateDownloadedWine)
-                    .unwrap();
+            GeneralAppMsg::SetGameVersion(version) => {
+                self.game_version = version
+                    .unwrap_or_else(|| i18n!("game-not-installed"));
+            }
+
+            GeneralAppMsg::UpdateGameVersion => {
+                Self::update_game_version(sender);
+            }
+
+            GeneralAppMsg::ReloadComponents => {
+                let _ = self.components_page.sender()
+                    .send(ComponentsPageMsg::Reload);
             }
 
             GeneralAppMsg::UpdateDownloadedDxvk => {
-                self.components_page.sender()
-                    .send(ComponentsPageMsg::UpdateDownloadedDxvk)
-                    .unwrap();
+                let _ = self.components_page.sender()
+                    .send(ComponentsPageMsg::UpdateDownloadedDxvk);
             }
 
             GeneralAppMsg::RepairGame => {
-                sender.output(Self::Output::RepairGame).unwrap();
+                let _ = sender.output(Self::Output::RepairGame);
             }
 
             GeneralAppMsg::RemakePrefix => {
-                sender.output(Self::Output::RemakePrefix).unwrap();
+                let _ = sender.output(Self::Output::RemakePrefix);
             }
 
-            GeneralAppMsg::OpenMainPage => unsafe {
-                // I honestly don't care anymore.
-                #[allow(static_mut_refs)]
-                PREFERENCES_WINDOW.as_ref()
-                    .unwrap_unchecked()
-                    .widget()
-                    .pop_subpage();
+            #[allow(static_mut_refs)]
+            GeneralAppMsg::OpenMainPage => {
+                if let Some(preferences) = unsafe { PREFERENCES_WINDOW.as_ref() } {
+                    preferences.widget().pop_subpage();
+                }
             }
 
-            GeneralAppMsg::OpenComponentsPage => unsafe {
-                // I honestly don't care anymore.
-                #[allow(static_mut_refs)]
-                PREFERENCES_WINDOW.as_ref()
-                    .unwrap_unchecked()
-                    .widget()
-                    .push_subpage(self.components_page.widget());
+            #[allow(static_mut_refs)]
+            GeneralAppMsg::OpenComponentsPage => {
+                if let Some(preferences) = unsafe { PREFERENCES_WINDOW.as_ref() } {
+                    preferences.widget().push_subpage(self.components_page.widget());
+                }
             }
 
             #[allow(unused_must_use)]
             GeneralAppMsg::UpdateLauncherStyle(style) => {
-                if style == LauncherStyle::Classic && !KEEP_BACKGROUND_FILE.exists()
-                    && let Err(err) = crate::background::download_background(
-                        self.use_video_background,
-                        self.background_index
-                    )
-                {
-                    tracing::error!("Failed to download background picture/video");
+                if style == LauncherStyle::Classic && !KEEP_BACKGROUND_FILE.exists() {
+                    let use_video = self.use_video_background;
+                    let background_index = self.background_index;
+                    let sender = sender.clone();
 
-                    sender.input(GeneralAppMsg::Toast {
-                        title: i18n!("background-downloading-failed"),
-                        description: Some(err.to_string())
+                    relm4::spawn(async move {
+                        match crate::background::download_background(
+                            use_video,
+                            background_index
+                        ).await {
+                            Ok(()) => sender.input(GeneralAppMsg::ApplyLauncherStyle(style)),
+
+                            Err(err) => {
+                                tracing::error!("Failed to download background picture/video");
+
+                                sender.input(GeneralAppMsg::Toast {
+                                    title: i18n!("background-downloading-failed"),
+                                    description: Some(err.to_string())
+                                });
+                            }
+                        }
                     });
 
                     return;
                 }
 
-                if let Ok(mut config) = Config::get() {
-                    config.launcher.style = style;
+                self.apply_launcher_style(style, &sender);
+            }
 
-                    Config::update(config);
-                }
-
-                self.style = style;
-
-                sender.output(Self::Output::SetLauncherStyle(style));
+            GeneralAppMsg::ApplyLauncherStyle(style) => {
+                self.apply_launcher_style(style, &sender);
             }
 
             GeneralAppMsg::SetVideoBackground(use_video) => {
                 if self.style == LauncherStyle::Classic
                     && !KEEP_BACKGROUND_FILE.exists() && use_video
-                    && let Err(err) = crate::background::download_background(
-                        use_video,
-                        self.background_index
-                    )
                 {
-                    tracing::error!("Failed to download background picture/video");
+                    let background_index = self.background_index;
+                    let sender = sender.clone();
 
-                    sender.input(GeneralAppMsg::Toast {
-                        title: i18n!("background-downloading-failed"),
-                        description: Some(err.to_string())
+                    relm4::spawn(async move {
+                        match crate::background::download_background(
+                            use_video,
+                            background_index
+                        ).await {
+                            Ok(()) => sender.input(GeneralAppMsg::ApplyVideoBackground(use_video)),
+
+                            Err(err) => {
+                                tracing::error!("Failed to download background picture/video");
+
+                                sender.input(GeneralAppMsg::Toast {
+                                    title: i18n!("background-downloading-failed"),
+                                    description: Some(err.to_string())
+                                });
+                            }
+                        }
                     });
 
                     return;
                 }
 
-                if let Ok(mut config) = Config::get() {
-                    config.launcher.video_background = use_video;
+                self.apply_video_background(use_video, &sender);
+            }
 
-                    Config::update(config);
-                }
-
-                self.use_video_background = use_video;
-
-                let _ = sender.output(Self::Output::SetVideoBackground(use_video));
+            GeneralAppMsg::ApplyVideoBackground(use_video) => {
+                self.apply_video_background(use_video, &sender);
             }
 
             GeneralAppMsg::WineOpen(executable) => {
@@ -627,5 +680,71 @@ impl SimpleAsyncComponent for GeneralApp {
                 sender.output(Self::Output::Toast { title, description });
             }
         }
+    }
+}
+
+impl GeneralApp {
+    fn apply_launcher_style(
+        &mut self,
+        style: LauncherStyle,
+        sender: &AsyncComponentSender<Self>
+    ) {
+        if let Ok(mut config) = Config::get() {
+            config.launcher.style = style;
+
+            Config::update(config);
+        }
+
+        self.style = style;
+
+        let _ = sender.output(PreferencesAppMsg::SetLauncherStyle(style));
+    }
+
+    fn apply_video_background(
+        &mut self,
+        use_video: bool,
+        sender: &AsyncComponentSender<Self>
+    ) {
+        if let Ok(mut config) = Config::get() {
+            config.launcher.video_background = use_video;
+
+            Config::update(config);
+        }
+
+        self.use_video_background = use_video;
+
+        let _ = sender.output(PreferencesAppMsg::SetVideoBackground(use_video));
+    }
+
+    fn update_game_version(sender: AsyncComponentSender<Self>) {
+        std::thread::spawn(move || {
+            let Some(runtime) = crate::TOKIO_HANDLE.get().cloned() else {
+                tracing::error!("Tokio runtime handle is not initialized");
+
+                return;
+            };
+
+            let version = runtime.block_on(async {
+                match crate::get_game_for_config().await {
+                    Ok(game) => match game.detect_version().await {
+                        Ok(version) => version,
+
+                        Err(err) => {
+                            tracing::error!("Failed to detect game version: {err}");
+
+                            None
+                        }
+                    },
+
+                    Err(err) => {
+                        tracing::error!("Failed to load game info: {err}");
+
+                        None
+                    }
+                }
+            });
+
+            sender.input(GeneralAppMsg::SetGameVersion(version));
+        });
     }
 }

@@ -19,18 +19,14 @@
 
 use std::path::PathBuf;
 
-use relm4::prelude::*;
-
 use gtk::prelude::*;
 use adw::prelude::*;
 
-use gtk::glib::clone;
-
-use anime_launcher_sdk::anime_game_core::prelude::*;
-use anime_launcher_sdk::anime_game_core::zzz::prelude::*;
-
 use anime_launcher_sdk::config::ConfigExt;
+use anime_launcher_sdk::download::{Installer, Update as InstallerUpdate};
 use anime_launcher_sdk::zzz::config::Config;
+
+use crate::*;
 
 use super::ComponentGroupMsg;
 use super::progress_bar::ProgressBarMsg;
@@ -151,11 +147,19 @@ impl SimpleAsyncComponent for ComponentVersion {
                         let path = self.download_folder.join(&self.name);
 
                         if path.exists() {
-                            // To hide main button while it's deleting compontent's folder
+                            // To hide main button while it's deleting component's folder
                             self.state = VersionState::Downloading;
 
-                            // todo
-                            std::fs::remove_dir_all(path).expect("Failed to delete component");
+                            if let Err(err) = std::fs::remove_dir_all(&path) {
+                                tracing::error!(
+                                    "Failed to delete component '{}': {err}",
+                                    self.name
+                                );
+
+                                self.state = VersionState::Downloaded;
+
+                                return;
+                            }
                         }
 
                         self.state = VersionState::NotDownloaded;
@@ -166,54 +170,64 @@ impl SimpleAsyncComponent for ComponentVersion {
                     }
 
                     VersionState::NotDownloaded => {
-                        if let Ok(config) = Config::get() {
-                            // todo
-                            let mut installer = Installer::new(&self.download_uri)
-                                .expect("Failed to create installer instance for this version")
-                                .with_temp_folder(config.launcher.temp.unwrap_or_else(std::env::temp_dir));
+                        let config = Config::get().unwrap_or_else(|_| CONFIG.clone());
 
-                            if let Some(filename) = &self.download_filename {
-                                installer = installer.with_filename(filename.to_owned());
+                        let installer = match Installer::new(&self.download_uri) {
+                            Ok(installer) => installer.with_temp_folder(
+                                config.launcher.temp.clone()
+                                    .unwrap_or_else(std::env::temp_dir)
+                            ),
+
+                            Err(err) => {
+                                tracing::error!(
+                                    "Failed to create installer for component '{}': {err}",
+                                    self.name
+                                );
+
+                                return;
                             }
+                        };
 
-                            self.state = VersionState::Downloading;
+                        let installer = match &self.download_filename {
+                            Some(filename) => installer.with_filename(filename),
+                            None => installer
+                        };
 
-                            let progress_bar_sender = self.progress_bar.sender().clone();
+                        self.state = VersionState::Downloading;
 
-                            #[allow(unused_must_use)]
-                            std::thread::spawn(clone!(
-                                #[strong(rename_to = download_folder)]
-                                self.download_folder,
+                        let download_folder = self.download_folder.clone();
+                        let progress_bar_sender = self.progress_bar.sender().clone();
+                        let sender = sender.clone();
 
-                                move || {
-                                    progress_bar_sender.send(ProgressBarMsg::Reset);
-                                    progress_bar_sender.send(ProgressBarMsg::SetVisible(true));
+                        relm4::spawn(async move {
+                            let result = installer.install(download_folder, {
+                                let progress_bar_sender = progress_bar_sender.clone();
 
-                                    installer.install(download_folder, move |state| {
-                                        match &state {
-                                            InstallerUpdate::UnpackingFinished |
-                                            InstallerUpdate::DownloadingError(_) |
-                                            InstallerUpdate::UnpackingError(_) => {
-                                                progress_bar_sender.send(ProgressBarMsg::SetVisible(false));
-
-                                                if let InstallerUpdate::UnpackingFinished = &state {
-                                                    sender.input(ComponentVersionMsg::SetState(VersionState::Downloaded));
-                                                    sender.output(ComponentGroupMsg::CallOnDownloaded);
-                                                }
-
-                                                else {
-                                                    sender.input(ComponentVersionMsg::SetState(VersionState::NotDownloaded));
-                                                }
-                                            },
-
-                                            _ => ()
-                                        }
-
-                                        progress_bar_sender.send(ProgressBarMsg::UpdateFromState(DiffUpdate::InstallerUpdate(state)));
-                                    });
+                                move |state| {
+                                    update_progress_bar(&progress_bar_sender, &state);
                                 }
-                            ));
-                        }
+                            }).await;
+
+                            let _ = progress_bar_sender.send(ProgressBarMsg::SetVisible(false));
+
+                            match result {
+                                Ok(()) => {
+                                    sender.input(ComponentVersionMsg::SetState(
+                                        VersionState::Downloaded
+                                    ));
+
+                                    let _ = sender.output(ComponentGroupMsg::CallOnDownloaded);
+                                }
+
+                                Err(err) => {
+                                    tracing::error!("Failed to download component: {err}");
+
+                                    sender.input(ComponentVersionMsg::SetState(
+                                        VersionState::NotDownloaded
+                                    ));
+                                }
+                            }
+                        });
                     }
 
                     _ => ()
@@ -221,6 +235,43 @@ impl SimpleAsyncComponent for ComponentVersion {
             }
 
             ComponentVersionMsg::SetState(state) => self.state = state
+        }
+    }
+
+}
+
+fn update_progress_bar(progress_bar_input: &relm4::Sender<ProgressBarMsg>, state: &InstallerUpdate) {
+    match state {
+        InstallerUpdate::DownloadingStarted(_) => {
+            let _ = progress_bar_input.send(ProgressBarMsg::Reset);
+            let _ = progress_bar_input.send(ProgressBarMsg::SetVisible(true));
+            let _ = progress_bar_input.send(ProgressBarMsg::UpdateCaption(Some(
+                i18n!("downloading")
+            )));
+        }
+
+        InstallerUpdate::DownloadingProgress(current, total) => {
+            let _ = progress_bar_input.send(ProgressBarMsg::UpdateProgress(*current, *total));
+        }
+
+        InstallerUpdate::DownloadingFinished => (),
+
+        InstallerUpdate::DownloadingError(err) => {
+            tracing::error!("Component downloading failed: {err}");
+        }
+
+        InstallerUpdate::UnpackingStarted(_) => {
+            let _ = progress_bar_input.send(ProgressBarMsg::UpdateCaption(Some(
+                i18n!("unpacking")
+            )));
+        }
+
+        InstallerUpdate::UnpackingFinished => {
+            let _ = progress_bar_input.send(ProgressBarMsg::SetVisible(false));
+        }
+
+        InstallerUpdate::UnpackingError(err) => {
+            tracing::error!("Component unpacking failed: {err}");
         }
     }
 }

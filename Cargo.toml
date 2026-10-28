@@ -1,6 +1,6 @@
 [package]
 name = "sleepy-launcher"
-version = "1.7.1"
+version = "1.8.0"
 description = "Sleepy launcher"
 authors = [
     "Nikita Podvirnyi <krypt0nn@dawn.wine>",
@@ -23,7 +23,7 @@ glib-build-tools = "0.22.8"
 
 [dependencies.anime-launcher-sdk]
 git = "https://github.com/an-anime-team/anime-launcher-sdk"
-tag = "1.36.11"
+tag = "1.37.0"
 features = ["all", "zzz"]
 
 # path = "../anime-launcher-sdk" # ! for dev purposes only
@@ -34,6 +34,8 @@ agl-locale = { git = "https://github.com/an-anime-team/anime-games-launcher" }
 relm4 = { version = "0.11", features = ["macros", "libadwaita"] }
 gtk = { package = "gtk4", version = "0.11", features = ["v4_16"] }
 adw = { package = "libadwaita", version = "0.9", features = ["v1_5"] }
+
+tokio = { version = "1.54", features = ["rt-multi-thread", "macros"] }
 
 rfd = "0.17"
 open = "5.4"

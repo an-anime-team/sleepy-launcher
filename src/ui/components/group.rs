@@ -86,7 +86,7 @@ impl SimpleAsyncComponent for ComponentGroup {
 
                 // todo
                 for version in &self.versions {
-                    version.sender().send(ComponentVersionMsg::ShowRecommendedOnly(state)).unwrap();
+                    version.sender().send(ComponentVersionMsg::ShowRecommendedOnly(state)).ok();
                 }
             }
 

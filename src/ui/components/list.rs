@@ -90,7 +90,7 @@ impl<T: std::fmt::Debug + Clone + 'static> SimpleAsyncComponent for ComponentsLi
 
                 // todo
                 for group in &self.groups {
-                    group.sender().send(ComponentGroupMsg::ShowRecommendedOnly(state)).unwrap();
+                    group.sender().send(ComponentGroupMsg::ShowRecommendedOnly(state)).ok();
                 }
             }
 

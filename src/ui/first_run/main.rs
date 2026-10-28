@@ -63,8 +63,8 @@ pub enum FirstRunAppMsg {
     }
 }
 
-#[relm4::component(pub)]
-impl SimpleComponent for FirstRunApp {
+#[relm4::component(pub, async)]
+impl SimpleAsyncComponent for FirstRunApp {
     type Init = ();
     type Input = FirstRunAppMsg;
     type Output = ();
@@ -128,7 +128,11 @@ impl SimpleComponent for FirstRunApp {
         }
     }
 
-    fn init(_parent: Self::Init, root: Self::Root, sender: ComponentSender<Self>) -> ComponentParts<Self> {
+    async fn init(
+        _parent: Self::Init,
+        root: Self::Root,
+        sender: AsyncComponentSender<Self>
+    ) -> AsyncComponentParts<Self> {
         tracing::info!("Initializing first run window");
 
         let toast_overlay = adw::ToastOverlay::new();
@@ -175,10 +179,10 @@ impl SimpleComponent for FirstRunApp {
 
         tracing::info!("First run window initialized. App is ready");
 
-        ComponentParts { model, widgets } // will return soon
+        AsyncComponentParts { model, widgets } // will return soon
     }
 
-    fn update(&mut self, msg: Self::Input, sender: ComponentSender<Self>) {
+    async fn update(&mut self, msg: Self::Input, sender: AsyncComponentSender<Self>) {
         tracing::debug!("Called first run window event: {:?}", msg);
 
         match msg {
@@ -215,10 +219,14 @@ impl SimpleComponent for FirstRunApp {
                         Ok(None) => {
                             for host in &CONFIG.components.servers {
                                 match components.sync(host) {
-                                    Ok(_) => break,
+                                    Ok(changes) => {
+                                        tracing::info!("Components index synced: {changes:?}");
+
+                                        break;
+                                    }
 
                                     Err(err) => {
-                                        tracing::error!("Failed to sync components index");
+                                        tracing::error!("Failed to sync components index: {err}");
 
                                         sender.input(FirstRunAppMsg::Toast {
                                             title: i18n!("components-index-sync-failed"),
@@ -230,7 +238,7 @@ impl SimpleComponent for FirstRunApp {
                         }
 
                         Err(err) => {
-                            tracing::error!("Failed to verify that components index synced");
+                            tracing::error!("Failed to verify that components index synced: {err}");
 
                             sender.input(FirstRunAppMsg::Toast {
                                 title: i18n!("components-index-verify-failed"),

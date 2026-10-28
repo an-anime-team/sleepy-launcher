@@ -20,21 +20,20 @@
 use std::path::Path;
 use std::process::Command;
 
-use anime_launcher_sdk::anime_game_core::installer::downloader::Downloader;
 use anime_launcher_sdk::is_available;
-use anime_launcher_sdk::anime_game_core::minreq;
+use anime_launcher_sdk::anime_game_core::sophon_tools::export::reqwest;
 
 use anyhow::Context;
 use md5::{Digest, Md5};
 
 use crate::STARTUP_LANG;
 
-pub fn download_background(with_video: bool, index: u8) -> anyhow::Result<()> {
+pub async fn download_background(with_video: bool, index: u8) -> anyhow::Result<()> {
     tracing::debug!("Downloading background picture");
 
-    let info = get_background_info(index)?;
+    let info = get_background_info(index).await?;
 
-    let regenerate_image = info.download(with_video)?;
+    let regenerate_image = info.download(with_video).await?;
 
     if regenerate_image {
         if gtk_webp_image_supported() {
@@ -67,20 +66,33 @@ pub fn download_background(with_video: bool, index: u8) -> anyhow::Result<()> {
     Ok(())
 }
 
-#[cached::proc_macro::cached]
-pub fn get_background_info_multiple() -> anyhow::Result<Vec<BackgroundSpec>> {
-    let json = serde_json::from_slice::<serde_json::Value>(
-        minreq::get(get_uri()).with_timeout(15).send()?.as_bytes()
-    )?;
+async fn fetch_backgrounds_json() -> anyhow::Result<serde_json::Value> {
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(15))
+        .build()
+        .context("Building HTTP client")?;
+
+    let response = client
+        .get(get_uri())
+        .send()
+        .await
+        .context("Downloading backgrounds info")?
+        .error_for_status()
+        .context("Downloading backgrounds info")?;
+
+    Ok(serde_json::from_slice(
+        &response.bytes().await.context("Reading backgrounds info")?
+    )?)
+}
+
+pub async fn get_background_info_multiple() -> anyhow::Result<Vec<BackgroundSpec>> {
+    let json = fetch_backgrounds_json().await?;
 
     BackgroundSpec::from_json_all(&json)
 }
 
-#[cached::proc_macro::cached]
-pub fn get_background_info(index: u8) -> anyhow::Result<BackgroundSpec> {
-    let json = serde_json::from_slice::<serde_json::Value>(
-        minreq::get(get_uri()).with_timeout(15).send()?.as_bytes()
-    )?;
+pub async fn get_background_info(index: u8) -> anyhow::Result<BackgroundSpec> {
+    let json = fetch_backgrounds_json().await?;
 
     BackgroundSpec::from_json_single(&json, index)
 }
@@ -141,22 +153,21 @@ impl BackgroundSpec {
     fn backgrounds_json_from_value(
         value: &serde_json::Value
     ) -> anyhow::Result<&Vec<serde_json::Value>> {
-        value["data"]["game_info_list"]
-                .as_array()
-                .ok_or_else(|| anyhow::anyhow!("Failed to list games in the backgrounds API"))?
-                .iter()
-                .find(|game| match game["game"]["biz"].as_str() {
-                    Some(biz) => biz.starts_with("nap_"),
-                    _ => false
-                })
-                .ok_or_else(|| anyhow::anyhow!("Failed to find the game in the backgrounds API"))?
-                ["backgrounds"]
-                .as_array()
-                .ok_or_else(|| {
-                    anyhow::anyhow!(
-                        "Failed to parse backgrounds API: `backgrounds` is not an array"
-                    )
-                })
+        value["data"]["game_info_list"].as_array()
+            .ok_or_else(|| anyhow::anyhow!("Failed to list games in the backgrounds API"))?
+            .iter()
+            .find(|game| match game["game"]["biz"].as_str() {
+                Some(biz) => biz.starts_with("nap_"),
+                _ => false
+            })
+            .ok_or_else(|| anyhow::anyhow!("Failed to find the game in the backgrounds API"))?
+            ["backgrounds"]
+            .as_array()
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "Failed to parse backgrounds API: `backgrounds` is not an array"
+                )
+            })
     }
 
     fn from_json_value(value: &serde_json::Value) -> anyhow::Result<Self> {
@@ -195,10 +206,10 @@ impl BackgroundSpec {
     }
 
     /// Returns true if the background needs to be re-generated
-    fn download(&self, with_video: bool) -> anyhow::Result<bool> {
+    async fn download(&self, with_video: bool) -> anyhow::Result<bool> {
         let mut regenerate_image = false;
 
-        regenerate_image |= self.background().download(&crate::BACKGROUND_FILE)?;
+        regenerate_image |= self.background().download(&crate::BACKGROUND_FILE).await?;
 
         if let Self::Video {
             video,
@@ -206,9 +217,9 @@ impl BackgroundSpec {
             ..
         } = self
         {
-            regenerate_image |= overlay.download(&crate::BACKGROUND_OVERLAY_FILE)?;
+            regenerate_image |= overlay.download(&crate::BACKGROUND_OVERLAY_FILE).await?;
             if with_video {
-                regenerate_image |= video.download(&crate::BACKGROUND_VIDEO_FILE)?;
+                regenerate_image |= video.download(&crate::BACKGROUND_VIDEO_FILE).await?;
             }
         }
 
@@ -288,9 +299,9 @@ impl Background {
     }
 
     /// Return true if the background needs to be re-generated
-    fn download(&self, path: &Path) -> anyhow::Result<bool> {
+    async fn download(&self, path: &Path) -> anyhow::Result<bool> {
         if !check_img_file(path, &self.hash)? {
-            download_img_file(path, &self.uri)?;
+            download_img_file(path, &self.uri).await?;
             return Ok(true);
         }
         Ok(false)
@@ -351,14 +362,24 @@ fn gtk_webp_image_supported() -> bool {
     })
 }
 
-fn download_img_file(path: &Path, uri: &str) -> anyhow::Result<()> {
-    let mut downloader = Downloader::new(uri)?;
+async fn download_img_file(path: &Path, uri: &str) -> anyhow::Result<()> {
+    let client = reqwest::Client::builder()
+        .connect_timeout(std::time::Duration::from_secs(30))
+        .build()
+        .context("Building HTTP client")?;
 
-    downloader.continue_downloading = false;
+    let response = client
+        .get(uri)
+        .send()
+        .await
+        .context("Downloading background image")?
+        .error_for_status()
+        .context("Downloading background image")?;
 
-    if let Err(err) = downloader.download(path, |_, _| {}) {
-        anyhow::bail!(err);
-    }
+    let bytes = response.bytes().await.context("Reading background image")?;
+
+    std::fs::write(path, &bytes)
+        .context("Writing background image")?;
 
     Ok(())
 }

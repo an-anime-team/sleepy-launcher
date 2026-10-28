@@ -48,8 +48,7 @@ impl AsyncFactoryComponent for Variable {
                 set_valign: gtk::Align::Center,
 
                 connect_clicked[sender, index] => move |_| {
-                    sender.output(EnvironmentPageMsg::Remove(index.clone()))
-                        .unwrap();
+                    let _ = sender.output(EnvironmentPageMsg::Remove(index.clone()));
                 }
             }
         }

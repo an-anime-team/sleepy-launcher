@@ -26,8 +26,19 @@ use crate::*;
 
 use super::{App, AppMsg};
 
-pub fn create_prefix(sender: ComponentSender<App>) {
-    let config = Config::get().unwrap();
+pub fn create_prefix(sender: AsyncComponentSender<App>) {
+    let config = match Config::get() {
+        Ok(config) => config,
+
+        Err(err) => {
+            sender.input(AppMsg::Toast {
+                title: i18n!("config-file-opening-error"),
+                description: Some(err.to_string())
+            });
+
+            return;
+        }
+    };
 
     match config.get_selected_wine() {
         Ok(Some(wine)) => {

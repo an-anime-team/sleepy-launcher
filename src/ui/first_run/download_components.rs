@@ -24,6 +24,7 @@ use adw::prelude::*;
 use anime_launcher_sdk::wincompatlib::prelude::*;
 use anime_launcher_sdk::components::*;
 use anime_launcher_sdk::config::ConfigExt;
+use anime_launcher_sdk::download::{Installer, Update as InstallerUpdate};
 use anime_launcher_sdk::zzz::config::Config;
 
 use super::main::FirstRunAppMsg;
@@ -33,6 +34,40 @@ use crate::*;
 
 fn get_installer(uri: &str, temp: Option<PathBuf>) -> anyhow::Result<Installer> {
     Ok(Installer::new(uri)?.with_temp_folder(temp.unwrap_or_else(std::env::temp_dir)))
+}
+
+fn update_progress_bar(progress_bar_input: &relm4::Sender<ProgressBarMsg>, state: &InstallerUpdate) {
+    match state {
+        InstallerUpdate::DownloadingStarted(_) => {
+            let _ = progress_bar_input.send(ProgressBarMsg::UpdateCaption(Some(
+                i18n!("downloading")
+            )));
+        }
+
+        InstallerUpdate::DownloadingProgress(current, total) => {
+            let _ = progress_bar_input.send(ProgressBarMsg::UpdateProgress(*current, *total));
+        }
+
+        InstallerUpdate::DownloadingFinished => (),
+
+        InstallerUpdate::DownloadingError(err) => {
+            tracing::error!("Component downloading failed: {err}");
+        }
+
+        InstallerUpdate::UnpackingStarted(_) => {
+            let _ = progress_bar_input.send(ProgressBarMsg::UpdateCaption(Some(
+                i18n!("unpacking")
+            )));
+        }
+
+        InstallerUpdate::UnpackingFinished => {
+            let _ = progress_bar_input.send(ProgressBarMsg::SetVisible(false));
+        }
+
+        InstallerUpdate::UnpackingError(err) => {
+            tracing::error!("Component unpacking failed: {err}");
+        }
+    }
 }
 
 pub struct DownloadComponentsApp {
@@ -328,14 +363,14 @@ impl SimpleAsyncComponent for DownloadComponentsApp {
                 let config = Config::get().unwrap_or_else(|_| CONFIG.clone());
 
                 // 4 latest versions of 4 first available wine group
-                self.wine_versions = wine::get_groups(&config.components.path).unwrap()
+                self.wine_versions = wine::get_groups(&config.components.path).unwrap_or_default()
                     .into_iter()
                     .take(4)
                     .flat_map(|group| group.versions.into_iter().take(4))
                     .collect();
 
                 // 4 latest versions of 4 first available dxvk group
-                self.dxvk_versions = dxvk::get_groups(&config.components.path).unwrap()
+                self.dxvk_versions = dxvk::get_groups(&config.components.path).unwrap_or_default()
                     .into_iter()
                     .take(4)
                     .flat_map(|group| group.versions.into_iter().take(4))
@@ -346,18 +381,39 @@ impl SimpleAsyncComponent for DownloadComponentsApp {
             DownloadComponentsAppMsg::DownloadWine => {
                 let config = Config::get().unwrap_or_else(|_| CONFIG.clone());
 
-                self.selected_wine = Some(self.wine_versions[self.wine_combo.selected() as usize].clone());
-                self.selected_dxvk = Some(self.dxvk_versions[self.dxvk_combo.selected() as usize].clone());
+                let Some(wine) = self.wine_versions
+                    .get(self.wine_combo.selected() as usize)
+                    .cloned()
+                else {
+                    sender.output(Self::Output::Toast {
+                        title: i18n!("wine-install-failed"),
+                        description: Some(i18n!("components-index-empty"))
+                    });
 
-                self.downloading_wine_version = self.selected_wine.clone().unwrap().title;
-                self.downloading_dxvk_version = self.selected_dxvk.clone().unwrap().name;
+                    return;
+                };
+
+                let Some(dxvk) = self.dxvk_versions
+                    .get(self.dxvk_combo.selected() as usize)
+                    .cloned()
+                else {
+                    sender.output(Self::Output::Toast {
+                        title: i18n!("dxvk-install-failed"),
+                        description: Some(i18n!("components-index-empty"))
+                    });
+
+                    return;
+                };
+
+                self.selected_wine = Some(wine.clone());
+                self.selected_dxvk = Some(dxvk.clone());
+
+                self.downloading_wine_version = wine.title.clone();
+                self.downloading_dxvk_version = dxvk.name.clone();
                 self.creating_prefix_path     = config.game.wine.prefix.to_string_lossy().to_string();
 
                 self.downloading = true;
                 self.downloading_wine = Some(false);
-
-                let wine = self.selected_wine.clone().unwrap();
-                let progress_bar_input = self.progress_bar.sender().clone();
 
                 // Skip wine downloading if it was already done
                 if wine.is_downloaded_in(&config.game.wine.builds) {
@@ -381,62 +437,24 @@ impl SimpleAsyncComponent for DownloadComponentsApp {
 
                 // Otherwise download wine
                 else {
+                    let progress_bar_input = self.progress_bar.sender().clone();
+
                     std::thread::spawn(move || {
                         tracing::info!("Installing wine: {}", wine.name);
 
-                        // Install wine
-                        match get_installer(&wine.uri, config.launcher.temp.clone()) {
-                            Ok(mut installer) => {
-                                // Create wine builds folder
-                                if config.game.wine.builds.exists() {
-                                    std::fs::create_dir_all(&config.game.wine.builds)
-                                        .expect("Failed to create wine builds directory");
-                                }
+                        let Some(runtime) = crate::TOKIO_HANDLE.get().cloned() else {
+                            tracing::error!("Tokio runtime handle is not initialized");
 
-                                installer.install(&config.game.wine.builds, move |update| {
-                                    match &update {
-                                        InstallerUpdate::DownloadingError(err) => {
-                                            tracing::error!("Failed to download wine: {err}");
+                            sender.output(Self::Output::Toast {
+                                title: i18n!("wine-install-failed"),
+                                description: None
+                            });
 
-                                            sender.output(Self::Output::Toast {
-                                                title: i18n!("wine-download-error"),
-                                                description: Some(err.to_string())
-                                            });
-                                        }
+                            return;
+                        };
 
-                                        InstallerUpdate::UnpackingError(err) => {
-                                            tracing::error!("Failed to unpack wine: {err}");
-
-                                            sender.output(Self::Output::Toast {
-                                                title: i18n!("wine-unpack-errror"),
-                                                description: Some(err.clone())
-                                            });
-                                        }
-
-                                        // Create prefix
-                                        InstallerUpdate::UnpackingFinished => {
-                                            let mut config = Config::get().unwrap_or_else(|_| CONFIG.clone());
-
-                                            config.game.wine.selected = Some(wine.name.clone());
-
-                                            if let Err(err) = Config::update_raw(config) {
-                                                tracing::error!("Failed to update config: {err}");
-
-                                                sender.output(Self::Output::Toast {
-                                                    title: i18n!("config-update-error"),
-                                                    description: Some(err.to_string())
-                                                });
-                                            }
-
-                                            sender.input(DownloadComponentsAppMsg::CreatePrefix);
-                                        },
-
-                                        _ => ()
-                                    }
-
-                                    progress_bar_input.send(ProgressBarMsg::UpdateFromState(DiffUpdate::InstallerUpdate(update)));
-                                });
-                            }
+                        let installer = match get_installer(&wine.uri, config.launcher.temp.clone()) {
+                            Ok(installer) => installer,
 
                             Err(err) => {
                                 tracing::error!("Failed to initialize wine installer: {err}");
@@ -445,7 +463,68 @@ impl SimpleAsyncComponent for DownloadComponentsApp {
                                     title: i18n!("wine-install-failed"),
                                     description: Some(err.to_string())
                                 });
+
+                                return;
                             }
+                        };
+
+                        let _ = progress_bar_input.send(ProgressBarMsg::Reset);
+                        let _ = progress_bar_input.send(ProgressBarMsg::SetVisible(true));
+
+                        let result = runtime.block_on(installer.install(&config.game.wine.builds, {
+                            let sender = sender.clone();
+                            let progress_bar_input = progress_bar_input.clone();
+
+                            move |update| {
+                                match &update {
+                                    InstallerUpdate::DownloadingError(err) => {
+                                        sender.output(Self::Output::Toast {
+                                            title: i18n!("wine-download-error"),
+                                            description: Some(err.clone())
+                                        });
+                                    }
+
+                                    InstallerUpdate::UnpackingError(err) => {
+                                        sender.output(Self::Output::Toast {
+                                            title: i18n!("wine-unpack-errror"),
+                                            description: Some(err.clone())
+                                        });
+                                    }
+
+                                    InstallerUpdate::UnpackingFinished => {
+                                        let mut config = Config::get()
+                                            .unwrap_or_else(|_| CONFIG.clone());
+
+                                        config.game.wine.selected = Some(wine.name.clone());
+
+                                        if let Err(err) = Config::update_raw(config) {
+                                            tracing::error!("Failed to update config: {err}");
+
+                                            sender.output(Self::Output::Toast {
+                                                title: i18n!("config-update-error"),
+                                                description: Some(err.to_string())
+                                            });
+                                        }
+
+                                        sender.input(DownloadComponentsAppMsg::CreatePrefix);
+                                    }
+
+                                    _ => ()
+                                }
+
+                                update_progress_bar(&progress_bar_input, &update);
+                            }
+                        }));
+
+                        let _ = progress_bar_input.send(ProgressBarMsg::SetVisible(false));
+
+                        if let Err(err) = result {
+                            tracing::error!("Failed to download wine: {err}");
+
+                            sender.output(Self::Output::Toast {
+                                title: i18n!("wine-install-failed"),
+                                description: Some(err.to_string())
+                            });
                         }
                     });
                 }
@@ -462,7 +541,14 @@ impl SimpleAsyncComponent for DownloadComponentsApp {
 
                 tracing::info!("Creating wine prefix");
 
-                let wine = self.selected_wine.as_ref().unwrap();
+                let Some(wine) = self.selected_wine.as_ref() else {
+                    sender.output(Self::Output::Toast {
+                        title: i18n!("wine-prefix-update-failed"),
+                        description: Some(i18n!("wine-version-not-selected"))
+                    });
+
+                    return;
+                };
 
                 let wine = wine
                     .to_wine(config.components.path, Some(config.game.wine.builds.join(&wine.name)))
@@ -494,7 +580,15 @@ impl SimpleAsyncComponent for DownloadComponentsApp {
 
                 let config = Config::get().unwrap_or_else(|_| CONFIG.clone());
 
-                let dxvk = self.selected_dxvk.clone().unwrap();
+                let Some(dxvk) = self.selected_dxvk.clone() else {
+                    sender.output(Self::Output::Toast {
+                        title: i18n!("dxvk-install-failed"),
+                        description: Some(i18n!("dxvk-version-not-selected"))
+                    });
+
+                    return;
+                };
+
                 let progress_bar_input = self.progress_bar.sender().clone();
 
                 if dxvk.is_downloaded_in(&config.game.dxvk.builds) {
@@ -505,60 +599,77 @@ impl SimpleAsyncComponent for DownloadComponentsApp {
 
                 else {
                     std::thread::spawn(move || {
-                        // Install DXVK
                         tracing::info!("Installing DXVK: {}", dxvk.name);
 
-                        match get_installer(&dxvk.uri, config.launcher.temp.clone()) {
-                            Ok(mut installer) => {
-                                let progress_bar_input = progress_bar_input.clone();
-                                let sender = sender.clone();
+                        let Some(runtime) = crate::TOKIO_HANDLE.get().cloned() else {
+                            tracing::error!("Tokio runtime handle is not initialized");
 
-                                // Create DXVK builds folder
-                                if config.game.dxvk.builds.exists() {
-                                    std::fs::create_dir_all(&config.game.dxvk.builds)
-                                        .expect("Failed to create DXVK builds directory");
-                                }
+                            sender.output(Self::Output::Toast {
+                                title: i18n!("dxvk-install-failed"),
+                                description: None
+                            });
 
-                                installer.install(&config.game.dxvk.builds, move |update| {
-                                    match &update {
-                                        InstallerUpdate::DownloadingError(err) => {
-                                            tracing::error!("Failed to download dxvk: {err}");
+                            return;
+                        };
 
-                                            sender.output(Self::Output::Toast {
-                                                title: i18n!("dxvk-download-error"),
-                                                description: Some(err.to_string())
-                                            });
-                                        }
-
-                                        InstallerUpdate::UnpackingError(err) => {
-                                            tracing::error!("Failed to unpack dxvk: {err}");
-
-                                            sender.output(Self::Output::Toast {
-                                                title: i18n!("dxvk-unpack-error"),
-                                                description: Some(err.clone())
-                                            });
-                                        }
-
-                                        // Apply DXVK
-                                        InstallerUpdate::UnpackingFinished => {
-                                            sender.input(DownloadComponentsAppMsg::ApplyDXVK);
-                                        }
-
-                                        _ => ()
-                                    }
-
-                                    progress_bar_input.send(ProgressBarMsg::UpdateFromState(DiffUpdate::InstallerUpdate(update)));
-                                });
-                            }
+                        let installer = match get_installer(&dxvk.uri, config.launcher.temp.clone()) {
+                            Ok(installer) => installer,
 
                             Err(err) => {
-                                tracing::error!("Failed to initialize dxvk installer: {err}");
+                                tracing::error!("Failed to initialize DXVK installer: {err}");
 
                                 sender.output(Self::Output::Toast {
                                     title: i18n!("dxvk-install-failed"),
                                     description: Some(err.to_string())
                                 });
+
+                                return;
                             }
+                        };
+
+                        let _ = progress_bar_input.send(ProgressBarMsg::Reset);
+                        let _ = progress_bar_input.send(ProgressBarMsg::SetVisible(true));
+
+                        let result = runtime.block_on(installer.install(&config.game.dxvk.builds, {
+                            let sender = sender.clone();
+                            let progress_bar_input = progress_bar_input.clone();
+
+                            move |update| {
+                                match &update {
+                                    InstallerUpdate::DownloadingError(err) => {
+                                        sender.output(Self::Output::Toast {
+                                            title: i18n!("dxvk-download-error"),
+                                            description: Some(err.clone())
+                                        });
+                                    }
+
+                                    InstallerUpdate::UnpackingError(err) => {
+                                        sender.output(Self::Output::Toast {
+                                            title: i18n!("dxvk-unpack-error"),
+                                            description: Some(err.clone())
+                                        });
+                                    }
+
+                                    InstallerUpdate::UnpackingFinished => {
+                                        sender.input(DownloadComponentsAppMsg::ApplyDXVK);
+                                    }
+
+                                    _ => ()
+                                }
+
+                                update_progress_bar(&progress_bar_input, &update);
+                            }
+                        }));
+
+                        let _ = progress_bar_input.send(ProgressBarMsg::SetVisible(false));
+
+                        if let Err(err) = result {
+                            tracing::error!("Failed to download DXVK: {err}");
+
+                            sender.output(Self::Output::Toast {
+                                title: i18n!("dxvk-install-failed"),
+                                description: Some(err.to_string())
+                            });
                         }
                     });
                 }
@@ -573,8 +684,23 @@ impl SimpleAsyncComponent for DownloadComponentsApp {
 
                 tracing::info!("Applying DXVK");
 
-                let wine = self.selected_wine.clone().unwrap();
-                let dxvk = self.selected_dxvk.clone().unwrap();
+                let Some(wine) = self.selected_wine.clone() else {
+                    sender.output(Self::Output::Toast {
+                        title: i18n!("dxvk-apply-error"),
+                        description: Some(i18n!("wine-version-not-selected"))
+                    });
+
+                    return;
+                };
+
+                let Some(dxvk) = self.selected_dxvk.clone() else {
+                    sender.output(Self::Output::Toast {
+                        title: i18n!("dxvk-apply-error"),
+                        description: Some(i18n!("dxvk-version-not-selected"))
+                    });
+
+                    return;
+                };
 
                 // Apply DXVK
                 let wine = wine

@@ -25,8 +25,19 @@ use crate::*;
 
 use super::{App, AppMsg};
 
-pub fn launch(sender: ComponentSender<App>) {
-    let config = Config::get().unwrap();
+pub fn launch(sender: AsyncComponentSender<App>) {
+    let config = match Config::get() {
+        Ok(config) => config,
+
+        Err(err) => {
+            sender.input(AppMsg::Toast {
+                title: i18n!("config-file-opening-error"),
+                description: Some(err.to_string())
+            });
+
+            return;
+        }
+    };
 
     match config.launcher.behavior {
         // Disable launch button and show kill game button if behavior set to "Nothing" to prevent sussy actions

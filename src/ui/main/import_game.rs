@@ -19,10 +19,12 @@
 
 use std::path::PathBuf;
 
+use anime_launcher_sdk::anime_game_core::sophon_tools::region::SophonRegion;
+
 use crate::*;
 use super::{App, AppMsg};
 
-pub fn import_game(sender: relm4::ComponentSender<App>, path: PathBuf) {
+pub async fn import_game(sender: relm4::AsyncComponentSender<App>, path: PathBuf) {
     // reject xdg-document-portal fuse mounts, files appear present but vanish
     // when the portal closes, so the game would silently break
     let canonical = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
@@ -48,10 +50,9 @@ pub fn import_game(sender: relm4::ComponentSender<App>, path: PathBuf) {
         }
     };
 
-    let edition = config.launcher.edition;
-    let game = Game::new(&path, edition);
-
-    if !game.is_installed() {
+    // TODO: this duplicates the binary name from the SDK/core. There's no
+    //       public API to check whether the game is installed yet.
+    if !path.join("ZenlessZoneZero.exe").exists() {
         sender.input(AppMsg::Toast {
             title: i18n!("import-game-invalid-path"),
             description: None
@@ -59,24 +60,14 @@ pub fn import_game(sender: relm4::ComponentSender<App>, path: PathBuf) {
         return;
     }
 
-    // write .version if missing so the launcher can detect the version
-    let version_path = path.join(".version");
-    if !version_path.exists() {
-        match game.get_version() {
-            Ok(version) => {
-                if let Err(err) = std::fs::write(&version_path, version.to_string()) {
-                    tracing::warn!("Failed to write .version during import: {err}");
-                }
-            }
-            Err(err) => tracing::warn!("Failed to detect version during import: {err}")
-        }
+    match config.launcher.edition {
+        SophonRegion::Global => config.game.path.global = path,
+        SophonRegion::China => config.game.path.china = path
     }
 
-    match edition {
-        GameEdition::Global => config.game.path.global = path,
-        GameEdition::China => config.game.path.china = path
-    }
     Config::update(config);
+
+    sender.input(AppMsg::UpdateGameVersion);
 
     sender.input(AppMsg::UpdateLauncherState {
         perform_on_download_needed: false,

@@ -1236,3 +1236,55 @@ tr = "Wine araçları"
 uk = "Інструменти Wine"
 vi = "Công cụ Wine"
 zh-cn = "Wine 工具"
+
+[game-downloader]
+en = "Game downloader"
+ru = "Загрузчик игры"
+
+[sophon_tools_settings_target_memory_usage_title]
+en = "Target memory usage"
+ru = "Использование системной памяти"
+ja = "目標メモリ使用量"
+
+[sophon_tools_settings_target_memory_usage_description]
+en = "Minimal amount of system memory in mebibytes available to downloader. Higher value will allow downloading more files in parallel."
+ru = "Минимальное количество системной памяти в мебибайтах, доступное загрузчику. Большее значение позволит скачивать больше файлов одновременно."
+ja = "ダウンローダーに割り当てるメモリの最小値をメビバイトで指定します。高い値に設定することで並列ダウンロード数を増やせます。"
+
+[sophon_tools_settings_max_parallel_streams_title]
+en = "Maximal parallel streams"
+ru = "Количество параллельных потоков"
+
+[sophon_tools_settings_max_parallel_streams_description]
+en = "Maximal amount of files downloader will be able to process in parallel. This limit is applied on top of target memory usage. Set 0 for unlimited."
+ru = "Наибольшее число файлов, которые загрузчик сможет обрабатывать одновременно. Это ограничение применяется поверх лимита системной памяти. Установите 0 чтобы отключить ограничение."
+
+[sophon_tools_settings_fast_verify_title]
+en = "Fast verify"
+ru = "Быстрая проверка"
+ja = "高速検証"
+
+[sophon_tools_settings_fast_verify_description]
+en = "Use files sizes for verifications instead of calculating md5 hashes."
+ru = "Использовать размеры файлов для проверок вместо вычислений md5 хешей."
+ja = "MD5ハッシュを計算する代わりにファイルサイズを利用して検証を行います。"
+
+[loading-game-info]
+en = "Loading game info"
+ru = "Загрузка информации об игре"
+
+[components-index-empty]
+en = "Components index is empty"
+ru = "Индекс компонентов пуст"
+
+[wine-version-not-selected]
+en = "Wine version is not selected"
+ru = "Версия Wine не выбрана"
+
+[dxvk-version-not-selected]
+en = "DXVK version is not selected"
+ru = "Версия DXVK не выбрана"
+
+[folders-migration-error]
+en = "Failed to migrate game folders"
+ru = "Не удалось перенести папки игры"

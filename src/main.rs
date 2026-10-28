@@ -18,18 +18,20 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 use std::path::PathBuf;
-use std::sync::LazyLock;
+use std::collections::HashMap;
+use std::sync::{LazyLock, Mutex, OnceLock};
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use relm4::prelude::*;
 
 use anime_launcher_sdk::config::ConfigExt;
+use anime_launcher_sdk::sessions::SessionsExt;
+use anime_launcher_sdk::anime_game_core::game::{Game, GameDiff, GameVariant};
+use anime_launcher_sdk::anime_game_core::sophon_tools::region::SophonRegion;
+use anime_launcher_sdk::anime_game_core::sophon_tools::export::tokio::runtime::Handle as TokioHandle;
 use anime_launcher_sdk::zzz::config::{Config, Schema};
 use anime_launcher_sdk::zzz::states::LauncherState;
 use anime_launcher_sdk::zzz::consts::*;
-use anime_launcher_sdk::anime_game_core::prelude::*;
-use anime_launcher_sdk::anime_game_core::zzz::prelude::*;
-use anime_launcher_sdk::sessions::SessionsExt;
 use anime_launcher_sdk::zzz::sessions::Sessions;
 
 use tracing_subscriber::prelude::*;
@@ -51,6 +53,47 @@ pub const APP_DEBUG: bool = cfg!(debug_assertions);
 
 /// Sets to `true` when the `App` component is ready (fully initialized)
 pub static READY: AtomicBool = AtomicBool::new(false);
+
+/// Cached game instances keyed by region and installation path.
+///
+/// `LauncherState<'game>` borrows a `&'game Game`, so the values are leaked to
+/// get `&'static Game`. Entries are reused until the configured edition or game
+/// path changes.
+pub static GAMES: LazyLock<Mutex<HashMap<(SophonRegion, PathBuf), &'static Game>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
+
+/// Get or load the game instance for the current config.
+pub async fn get_game_for_config() -> anyhow::Result<&'static Game> {
+    let config = Config::get()?;
+
+    let region = config.launcher.edition;
+    let path = config.game.path
+        .for_edition(&region)
+        .to_path_buf();
+
+    get_or_load_game(region, path).await
+}
+
+/// Get or load a game instance for the given region and path.
+pub async fn get_or_load_game(
+    region: SophonRegion,
+    path: PathBuf
+) -> anyhow::Result<&'static Game> {
+    let key = (region, path);
+
+    if let Some(game) = GAMES.lock().unwrap().get(&key).copied() {
+        return Ok(game);
+    }
+
+    let game = Game::new(GameVariant::ZenlessZoneZero, region, key.1.clone()).await?;
+    let game: &'static Game = Box::leak(Box::new(game));
+
+    Ok(*GAMES.lock().unwrap().entry(key).or_insert(game))
+}
+
+/// Handle to the Tokio runtime created in `main`. Used to run non-`Send`
+/// game download futures on a dedicated thread with `Handle::block_on`.
+pub static TOKIO_HANDLE: OnceLock<TokioHandle> = OnceLock::new();
 
 // TODO: get rid of using this function in all the components' events
 //       e.g. by converting preferences pages into Relm4 Components
@@ -83,11 +126,14 @@ pub static STARTUP_LANG: LazyLock<agl_locale::unic_langid::LanguageIdentifier> =
         .unwrap_or_else(|_| agl_locale::SYSTEM_LANG.clone())
 });
 
-pub static GAME: LazyLock<Game> = LazyLock::new(|| {
-    Game::new(
-        CONFIG.game.path.for_edition(CONFIG.launcher.edition),
-        CONFIG.launcher.edition
-    )
+/// Localized "loading game info" status page text.
+pub static LOADING_GAME_INFO: LazyLock<String> = LazyLock::new(|| {
+    crate::i18n!("loading-game-info")
+});
+
+/// Localized fallback "loading launcher state" status page text.
+pub static LOADING_LAUNCHER_STATE: LazyLock<String> = LazyLock::new(|| {
+    crate::i18n!("loading-launcher-state")
 });
 
 /// Path to launcher folder. Standard is `$HOME/.local/share/sleepy-launcher`
@@ -129,7 +175,7 @@ pub static KEEP_BACKGROUND_FILE: LazyLock<PathBuf> = LazyLock::new(|| LAUNCHER_F
 pub static FIRST_RUN_FILE: LazyLock<PathBuf> = LazyLock::new(|| LAUNCHER_FOLDER.join(".first-run"));
 
 /// Global app's css
-static GLOBAL_CSS: LazyLock<String> = LazyLock::new(|| format!("
+pub(crate) static GLOBAL_CSS: LazyLock<String> = LazyLock::new(|| format!("
     progressbar > text {{
         margin-bottom: 6px;
         font-weight: bold;
@@ -314,7 +360,11 @@ fn main() -> anyhow::Result<()> {
             }
         })
         .with_filter(filter_fn(move |metadata| {
-            !metadata.target().contains("rustls") && !no_verbose_tracing
+            !metadata.target().contains("rustls")
+                && !metadata.target().contains("h2")
+                && !metadata.target().contains("hyper_util")
+                && !metadata.target().contains("reqwest::retry")
+                && !no_verbose_tracing
         }));
 
     // Prepare debug file logger
@@ -323,7 +373,12 @@ fn main() -> anyhow::Result<()> {
     let debug_log = tracing_subscriber::fmt::layer()
         .with_ansi(false)
         .with_writer(std::sync::Arc::new(file))
-        .with_filter(filter_fn(|metadata| !metadata.target().contains("rustls")));
+        .with_filter(filter_fn(|metadata| {
+            !metadata.target().contains("rustls")
+                && !metadata.target().contains("h2")
+                && !metadata.target().contains("hyper_util")
+                && !metadata.target().contains("reqwest::retry")
+        }));
 
     tracing_subscriber::registry()
         .with(stdout)
@@ -349,44 +404,60 @@ fn main() -> anyhow::Result<()> {
     gtk::glib::set_application_name("Sleepy Launcher");
     gtk::glib::set_program_name(Some("Sleepy Launcher"));
 
+    // Create the Tokio runtime used by background downloads.
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .expect("Failed to create Tokio runtime");
+
+    TOKIO_HANDLE.set(runtime.handle().clone()).ok();
+
     // Run FirstRun window if .first-run file persist
     if FIRST_RUN_FILE.exists() {
         // Create the app
-        let app = RelmApp::new(APP_ID).with_args(gtk_args);
+        let app = RelmApp::new(APP_ID)
+            .with_args(gtk_args);
 
         // Show first run window
-        app.run::<FirstRunApp>(());
+        app.run_async::<FirstRunApp>(());
     }
+
     // Run the app if everything's ready
     else {
         if run_game || just_run_game {
-            let state =
-                LauncherState::get_from_config(|_| {}).expect("Failed to get launcher state");
+            match runtime.block_on(get_game_for_config()) {
+                Ok(game) => match runtime.block_on(
+                    LauncherState::get_from_config(game)
+                ) {
+                    Ok(LauncherState::Launch) => {
+                        anime_launcher_sdk::zzz::game::run()
+                            .expect("Failed to run the game");
 
-            match state {
-                LauncherState::Launch => {
-                    anime_launcher_sdk::zzz::game::run().expect("Failed to run the game");
+                        return Ok(());
+                    }
 
-                    return Ok(());
-                }
+                    Ok(LauncherState::GameDiff(GameDiff::Update { .. })) if just_run_game => {
+                        anime_launcher_sdk::zzz::game::run()
+                            .expect("Failed to run the game");
 
-                LauncherState::PredownloadAvailable {
-                    ..
-                } if just_run_game => {
-                    anime_launcher_sdk::zzz::game::run().expect("Failed to run the game");
+                        return Ok(());
+                    }
 
-                    return Ok(());
-                }
+                    Ok(_) => (),
 
-                _ => ()
+                    Err(err) => tracing::error!("Failed to get launcher state: {err}")
+                },
+
+                Err(err) => tracing::error!("Failed to load game info: {err}")
             }
         }
 
         // Create the app
-        let app = RelmApp::new(APP_ID).with_args(gtk_args);
+        let app = RelmApp::new(APP_ID)
+            .with_args(gtk_args);
 
         // Show main window
-        app.run::<App>(());
+        app.run_async::<App>(());
     }
 
     Ok(())

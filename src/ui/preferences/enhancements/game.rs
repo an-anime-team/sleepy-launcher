@@ -62,8 +62,7 @@ impl AsyncFactoryComponent for GameSession {
                 set_valign: gtk::Align::Center,
 
                 connect_clicked[sender, index] => move |_| {
-                    sender.output(GamePageMsg::UpdateSession(index.current_index()))
-                        .unwrap();
+                    let _ = sender.output(GamePageMsg::UpdateSession(index.current_index()));
                 }
             },
 
@@ -76,16 +75,14 @@ impl AsyncFactoryComponent for GameSession {
                 set_valign: gtk::Align::Center,
 
                 connect_clicked[sender, index] => move |_| {
-                    sender.output(GamePageMsg::RemoveSession(index.current_index()))
-                        .unwrap();
+                    let _ = sender.output(GamePageMsg::RemoveSession(index.current_index()));
                 }
             },
 
             set_activatable: true,
 
             connect_activated[sender, index] => move |_| {
-                sender.output(GamePageMsg::SetCurrent(index.current_index()))
-                    .unwrap();
+                let _ = sender.output(GamePageMsg::SetCurrent(index.current_index()));
             }
         }
     }

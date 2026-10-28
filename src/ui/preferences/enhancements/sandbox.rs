@@ -55,8 +55,7 @@ macro_rules! impl_directory {
                         set_valign: gtk::Align::Center,
 
                         connect_clicked[sender, index] => move |_| {
-                            sender.output($msg(index.clone()))
-                                .unwrap();
+                            let _ = sender.output($msg(index.clone()));
                         }
                     }
                 }

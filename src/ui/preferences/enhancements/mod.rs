@@ -544,45 +544,33 @@ impl SimpleAsyncComponent for EnhancementsApp {
                 self.gamescope.widget().present();
             }
 
-            EnhancementsAppMsg::OpenMainPage => unsafe {
-                // I honestly don't care anymore.
-                #[allow(static_mut_refs)]
-                PREFERENCES_WINDOW
-                    .as_ref()
-                    .unwrap_unchecked()
-                    .widget()
-                    .pop_subpage();
-            },
+            #[allow(static_mut_refs)]
+            EnhancementsAppMsg::OpenMainPage => {
+                if let Some(preferences) = unsafe { PREFERENCES_WINDOW.as_ref() } {
+                    preferences.widget().pop_subpage();
+                }
+            }
 
-            EnhancementsAppMsg::OpenGameSettingsPage => unsafe {
-                // I honestly don't care anymore.
-                #[allow(static_mut_refs)]
-                PREFERENCES_WINDOW
-                    .as_ref()
-                    .unwrap_unchecked()
-                    .widget()
-                    .push_subpage(self.game_page.widget());
-            },
+            #[allow(static_mut_refs)]
+            EnhancementsAppMsg::OpenGameSettingsPage => {
+                if let Some(preferences) = unsafe { PREFERENCES_WINDOW.as_ref() } {
+                    preferences.widget().push_subpage(self.game_page.widget());
+                }
+            }
 
-            EnhancementsAppMsg::OpenSandboxSettingsPage => unsafe {
-                // I honestly don't care anymore.
-                #[allow(static_mut_refs)]
-                PREFERENCES_WINDOW
-                    .as_ref()
-                    .unwrap_unchecked()
-                    .widget()
-                    .push_subpage(self.sandbox_page.widget());
-            },
+            #[allow(static_mut_refs)]
+            EnhancementsAppMsg::OpenSandboxSettingsPage => {
+                if let Some(preferences) = unsafe { PREFERENCES_WINDOW.as_ref() } {
+                    preferences.widget().push_subpage(self.sandbox_page.widget());
+                }
+            }
 
-            EnhancementsAppMsg::OpenEnvironmentSettingsPage => unsafe {
-                // I honestly don't care anymore.
-                #[allow(static_mut_refs)]
-                PREFERENCES_WINDOW
-                    .as_ref()
-                    .unwrap_unchecked()
-                    .widget()
-                    .push_subpage(self.environment_page.widget());
-            },
+            #[allow(static_mut_refs)]
+            EnhancementsAppMsg::OpenEnvironmentSettingsPage => {
+                if let Some(preferences) = unsafe { PREFERENCES_WINDOW.as_ref() } {
+                    preferences.widget().push_subpage(self.environment_page.widget());
+                }
+            }
 
             EnhancementsAppMsg::SetTimeoutFix(value) => {
                 self.timeout_fix = value;
@@ -592,12 +580,11 @@ impl SimpleAsyncComponent for EnhancementsApp {
                 title,
                 description
             } => {
-                sender
+                let _ = sender
                     .output(PreferencesAppMsg::Toast {
                         title,
                         description
-                    })
-                    .unwrap();
+                    });
             }
         }
     }

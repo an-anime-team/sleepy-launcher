@@ -23,14 +23,37 @@ use crate::*;
 
 use super::{App, AppMsg};
 
-pub fn migrate_folder(sender: ComponentSender<App>, from: PathBuf, to: PathBuf, cleanup_folder: Option<PathBuf>) {
+pub fn migrate_folder(
+    sender: AsyncComponentSender<App>,
+    from: PathBuf,
+    to: PathBuf,
+    cleanup_folder: Option<PathBuf>
+) {
     sender.input(AppMsg::DisableButtons(true));
 
     std::thread::spawn(move || {
-        move_files::move_files(&from, &to).expect("Failed to perform migration");
+        if let Err(err) = move_files::move_files(&from, &to) {
+            tracing::error!("Failed to perform folders migration: {err}");
 
-        if let Some(cleanup_folder) = cleanup_folder {
-            std::fs::remove_dir_all(cleanup_folder).expect("Failed to remove cleanup folder");
+            sender.input(AppMsg::Toast {
+                title: i18n!("folders-migration-error"),
+                description: Some(err.to_string())
+            });
+
+            sender.input(AppMsg::DisableButtons(false));
+
+            return;
+        }
+
+        if let Some(cleanup_folder) = cleanup_folder
+            && let Err(err) = std::fs::remove_dir_all(cleanup_folder)
+        {
+            tracing::error!("Failed to remove cleanup folder: {err}");
+
+            sender.input(AppMsg::Toast {
+                title: i18n!("folders-migration-error"),
+                description: Some(err.to_string())
+            });
         }
 
         sender.input(AppMsg::DisableButtons(false));

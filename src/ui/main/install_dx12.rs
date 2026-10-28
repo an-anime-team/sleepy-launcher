@@ -28,8 +28,8 @@ use anime_launcher_sdk::wincompatlib::prelude::*;
 use anime_launcher_sdk::config::ConfigExt;
 use anime_launcher_sdk::zzz::config::Config;
 
-use anime_launcher_sdk::anime_game_core::minreq;
-use anime_launcher_sdk::anime_game_core::installer::downloader::Downloader;
+use anime_launcher_sdk::anime_game_core::sophon_tools::export::reqwest;
+use anime_launcher_sdk::download::{Installer, Update as InstallerUpdate};
 
 use crate::*;
 use crate::ui::components::*;
@@ -39,16 +39,54 @@ use super::{App, AppMsg};
 const VKD3D_REPO: &str = "HansKristian-Work/vkd3d-proton";
 const NVAPI_REPO: &str = "jp7677/dxvk-nvapi";
 
-// find the download url of the latest release asset whose name ends with `suffix`.
-// we read the actual asset url instead of building it ourselves because upstream
-// uses different compression
-fn latest_release_asset(repo: &str, suffix: &str) -> anyhow::Result<String> {
-    let response = minreq::get(format!("https://api.github.com/repos/{repo}/releases/latest"))
-        .with_header("User-Agent", "sleepy-launcher")
-        .with_timeout(15)
-        .send()?;
+fn update_progress_bar(progress_bar_input: &Sender<ProgressBarMsg>, state: &InstallerUpdate) {
+    match state {
+        InstallerUpdate::DownloadingStarted(_) => {
+            let _ = progress_bar_input.send(ProgressBarMsg::UpdateCaption(Some(
+                i18n!("downloading")
+            )));
+        }
 
-    let json: serde_json::Value = serde_json::from_slice(response.as_bytes())?;
+        InstallerUpdate::DownloadingProgress(current, total) => {
+            let _ = progress_bar_input.send(ProgressBarMsg::UpdateProgress(*current, *total));
+        }
+
+        InstallerUpdate::DownloadingFinished => (),
+
+        InstallerUpdate::DownloadingError(err) => {
+            tracing::error!("DX12 downloading failed: {err}");
+        }
+
+        InstallerUpdate::UnpackingStarted(_) => {
+            let _ = progress_bar_input.send(ProgressBarMsg::UpdateCaption(Some(
+                i18n!("unpacking")
+            )));
+        }
+
+        InstallerUpdate::UnpackingFinished => {
+            let _ = progress_bar_input.send(ProgressBarMsg::SetVisible(false));
+        }
+
+        InstallerUpdate::UnpackingError(err) => {
+            tracing::error!("DX12 unpacking failed: {err}");
+        }
+    }
+}
+
+/// Find the download URL of the latest release asset whose name ends with `suffix`.
+async fn latest_release_asset(repo: &str, suffix: &str) -> anyhow::Result<String> {
+    let client = reqwest::Client::builder()
+        .user_agent("sleepy-launcher")
+        .connect_timeout(std::time::Duration::from_secs(30))
+        .build()?;
+
+    let response = client
+        .get(format!("https://api.github.com/repos/{repo}/releases/latest"))
+        .send()
+        .await?
+        .error_for_status()?;
+
+    let json: serde_json::Value = serde_json::from_str(&response.text().await?)?;
 
     let assets = json.get("assets")
         .and_then(|value| value.as_array())
@@ -69,40 +107,33 @@ fn latest_release_asset(repo: &str, suffix: &str) -> anyhow::Result<String> {
     anyhow::bail!("no {suffix} asset found in the latest {repo} release")
 }
 
-// get local filename from the download
-fn url_filename<'a>(url: &'a str, fallback: &'a str) -> &'a str {
-    url.rsplit('/').next().filter(|name| !name.is_empty()).unwrap_or(fallback)
-}
+/// Download and unpack the archive into a temporary folder.
+async fn unpack_release(
+    uri: &str,
+    temp: &Path,
+    extract_dir: &Path,
+    progress_bar_input: &Sender<ProgressBarMsg>
+) -> anyhow::Result<()> {
+    let installer = Installer::new(uri)?.with_temp_folder(temp.to_path_buf());
+    let archive_path = temp.join(installer.get_filename());
 
-// based on core downloader
-fn download_file(uri: &str, output: &Path, progress_bar_input: &Sender<ProgressBarMsg>) -> anyhow::Result<()> {
-    let mut downloader = Downloader::new(uri)?;
+    let _ = std::fs::remove_dir_all(extract_dir);
 
-    downloader.download(output, clone!(
-        #[strong] progress_bar_input,
-        move |curr, total| {
-            #[allow(unused_must_use)] {
-                progress_bar_input.send(ProgressBarMsg::UpdateProgress(curr, total));
-            }
-        }
-    )).map_err(|err| anyhow::anyhow!("{err}"))?;
+    let _ = progress_bar_input.send(ProgressBarMsg::UpdateCaption(Some(
+        i18n!("downloading")
+    )));
+    let _ = progress_bar_input.send(ProgressBarMsg::SetVisible(true));
 
-    Ok(())
-}
+    let result = installer.install(extract_dir, {
+        let progress_bar_input = progress_bar_input.clone();
 
-fn extract_archive(archive: &Path, dest: &Path) -> anyhow::Result<()> {
-    let output = std::process::Command::new("tar")
-        .arg("-xf")
-        .arg(archive)
-        .arg("-C")
-        .arg(dest)
-        .output()?;
+        move |state| update_progress_bar(&progress_bar_input, &state)
+    }).await;
 
-    if !output.status.success() {
-        anyhow::bail!("failed to extract {}: {}", archive.display(), String::from_utf8_lossy(&output.stderr).trim());
-    }
+    let _ = progress_bar_input.send(ProgressBarMsg::SetVisible(false));
+    let _ = std::fs::remove_file(archive_path);
 
-    Ok(())
+    result
 }
 
 // find the dir that directly holds the x64 folder to make up for
@@ -163,30 +194,18 @@ fn find_nvidia_wine_dll_dir() -> Option<PathBuf> {
 
 // install vkd3d-proton into the prefix
 // https://github.com/Winetricks/winetricks/blob/08304e81f9ac9a83c552a6bd78689040d174bf95/src/winetricks#L8279
-fn install_vkd3d(
+async fn install_vkd3d(
     wine: &Wine,
     temp: &Path,
     system32: &Path,
     syswow64: &Path,
     progress_bar_input: &Sender<ProgressBarMsg>
 ) -> anyhow::Result<()> {
-    let uri = latest_release_asset(VKD3D_REPO, ".tar.zst")?;
+    let uri = latest_release_asset(VKD3D_REPO, ".tar.zst").await?;
 
-    let archive = temp.join(url_filename(&uri, "vkd3d-proton.tar.zst"));
     let extract_dir = temp.join("vkd3d-proton-extract");
 
-    #[allow(unused_must_use)] {
-        progress_bar_input.send(ProgressBarMsg::UpdateCaption(Some(i18n!("downloading"))));
-    }
-
-    // start fresh so a previous failed attempt can't be resumed into
-    let _ = std::fs::remove_file(&archive);
-
-    download_file(&uri, &archive, progress_bar_input)?;
-
-    let _ = std::fs::remove_dir_all(&extract_dir);
-    std::fs::create_dir_all(&extract_dir)?;
-    extract_archive(&archive, &extract_dir)?;
+    unpack_release(&uri, temp, &extract_dir, progress_bar_input).await?;
 
     let root = find_arch_root(&extract_dir)?;
 
@@ -199,7 +218,6 @@ fn install_vkd3d(
         wine.add_override(dll, [OverrideMode::Native])?;
     }
 
-    let _ = std::fs::remove_file(&archive);
     let _ = std::fs::remove_dir_all(&extract_dir);
 
     Ok(())
@@ -207,30 +225,18 @@ fn install_vkd3d(
 
 // install dxvk-nvapi (nvidia nvapi implementation, needed for dlss/reflex)
 // https://github.com/jp7677/dxvk-nvapi/blob/bfd44821a77fc591635ae0e56c0b0e49cb26d3a5/README.md#wine--wine-staging
-fn install_nvapi(
+async fn install_nvapi(
     wine: &Wine,
     temp: &Path,
     system32: &Path,
     syswow64: &Path,
     progress_bar_input: &Sender<ProgressBarMsg>
 ) -> anyhow::Result<()> {
-    let uri = latest_release_asset(NVAPI_REPO, ".tar.gz")?;
+    let uri = latest_release_asset(NVAPI_REPO, ".tar.gz").await?;
 
-    let archive = temp.join(url_filename(&uri, "dxvk-nvapi.tar.gz"));
     let extract_dir = temp.join("dxvk-nvapi-extract");
 
-    #[allow(unused_must_use)] {
-        progress_bar_input.send(ProgressBarMsg::UpdateCaption(Some(i18n!("downloading"))));
-    }
-
-    // start fresh so a previous failed attempt can't be resumed into
-    let _ = std::fs::remove_file(&archive);
-
-    download_file(&uri, &archive, progress_bar_input)?;
-
-    let _ = std::fs::remove_dir_all(&extract_dir);
-    std::fs::create_dir_all(&extract_dir)?;
-    extract_archive(&archive, &extract_dir)?;
+    unpack_release(&uri, temp, &extract_dir, progress_bar_input).await?;
 
     let root = find_arch_root(&extract_dir)?;
 
@@ -257,14 +263,27 @@ fn install_nvapi(
         None => tracing::warn!("Could not locate host nvidia driver nvngx dlls; DLSS will be unavailable")
     }
 
-    let _ = std::fs::remove_file(&archive);
     let _ = std::fs::remove_dir_all(&extract_dir);
 
     Ok(())
 }
 
-pub fn install_dx12(sender: ComponentSender<App>, progress_bar_input: Sender<ProgressBarMsg>) {
-    let config = Config::get().unwrap();
+pub fn install_dx12(
+    sender: AsyncComponentSender<App>,
+    progress_bar_input: Sender<ProgressBarMsg>
+) {
+    let config = match Config::get() {
+        Ok(config) => config,
+
+        Err(err) => {
+            sender.input(AppMsg::Toast {
+                title: i18n!("config-file-opening-error"),
+                description: Some(err.to_string())
+            });
+
+            return;
+        }
+    };
 
     match config.get_selected_wine() {
         Ok(Some(wine_config)) => {
@@ -273,6 +292,17 @@ pub fn install_dx12(sender: ComponentSender<App>, progress_bar_input: Sender<Pro
             std::thread::spawn(clone!(
                 #[strong] sender,
                 move || {
+                    let Some(runtime) = crate::TOKIO_HANDLE.get().cloned() else {
+                        tracing::error!("Tokio runtime handle is not initialized");
+
+                        sender.input(AppMsg::Toast {
+                            title: i18n!("dx12-install-failed"),
+                            description: None
+                        });
+
+                        return;
+                    };
+
                     let components_path = config.components.path.clone();
                     let prefix = config.game.wine.prefix.clone();
 
@@ -291,8 +321,13 @@ pub fn install_dx12(sender: ComponentSender<App>, progress_bar_input: Sender<Pro
 
                     sender.input(AppMsg::SetDownloading(true));
 
-                    let result = install_vkd3d(&wine, &temp, &system32, &syswow64, &progress_bar_input)
-                        .and_then(|()| install_nvapi(&wine, &temp, &system32, &syswow64, &progress_bar_input));
+                    let result = runtime.block_on(async {
+                        install_vkd3d(&wine, &temp, &system32, &syswow64, &progress_bar_input)
+                            .await?;
+
+                        install_nvapi(&wine, &temp, &system32, &syswow64, &progress_bar_input)
+                            .await
+                    });
 
                     sender.input(AppMsg::SetDownloading(false));
 
