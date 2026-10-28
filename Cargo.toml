@@ -1,16 +1,17 @@
 [package]
 name = "sleepy-launcher"
-version = "1.7.1"
+version = "1.8.0"
 description = "Sleepy launcher"
 authors = [
-    "Nikita Podvirnyi <krypt0nn@vk.com>",
-    "@JohnTheCoolingFan <https://github.com/JohnTheCoolingFan>"
+    "Nikita Podvirnyi <krypt0nn@dawn.wine>",
+    "@JohnTheCoolingFan <ivan8215145640@gmail.com>"
 ]
 homepage = "https://github.com/an-anime-team/sleepy-launcher"
 repository = "https://github.com/an-anime-team/sleepy-launcher"
-license = "GPL-3.0"
-edition = "2021"
+license = "GPL-3.0-or-later"
+edition = "2024"
 build = "build.rs"
+publish = false
 
 [profile.release]
 strip = true
@@ -18,35 +19,35 @@ lto = true
 opt-level = "s"
 
 [build-dependencies]
-glib-build-tools = "0.20"
+glib-build-tools = "0.22.8"
 
 [dependencies.anime-launcher-sdk]
 git = "https://github.com/an-anime-team/anime-launcher-sdk"
-tag = "1.36.11"
+tag = "1.37.0"
 features = ["all", "zzz"]
 
 # path = "../anime-launcher-sdk" # ! for dev purposes only
 
 [dependencies]
-relm4 = { version = "0.9.0", features = ["macros", "libadwaita"] }
-gtk = { package = "gtk4", version = "0.9.0", features = ["v4_12"] }
-adw = { package = "libadwaita", version = "0.7.0", features = ["v1_4"] }
+agl-locale = { git = "https://github.com/an-anime-team/anime-games-launcher" }
 
-rfd = { version = "0.15.0", features = ["xdg-portal", "tokio"], default-features = false }
-open = "5.3.0"
+relm4 = { version = "0.11", features = ["macros", "libadwaita"] }
+gtk = { package = "gtk4", version = "0.11", features = ["v4_16"] }
+adw = { package = "libadwaita", version = "0.9", features = ["v1_5"] }
+
+tokio = { version = "1.54", features = ["rt-multi-thread", "macros"] }
+
+rfd = "0.17"
+open = "5.4"
 whatadistro = "0.1.0"
 
 serde_json = "1.0"
 anyhow = "1.0"
-lazy_static = "1.5.0"
-cached = { version = "0.53", features = ["proc_macro"] }
-md-5 = { version = "0.10", features = ["asm"] }
-enum-ordinalize = "4.3"
+cached = { version = "4.0", features = ["proc_macro"] }
+md-5 = "0.11"
+enum-ordinalize = "4.4"
 
 tracing = "0.1"
 tracing-subscriber = "0.3"
 
-fluent-templates = "0.11"
-unic-langid = "0.9"
-
-human-panic = "2.0.1"
+human-panic = "2.0.2"

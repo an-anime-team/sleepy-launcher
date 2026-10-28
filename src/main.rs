@@ -1,15 +1,39 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+//
+// sleepy-launcher
+// Copyright (C) 2021 - 2026  Nikita Podvirnyi <krypt0nn@dawn.wine>
+// Copyright (C) 2025 - 2026  @JohnTheCoolingFan <ivan8215145640@gmail.com>
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 use std::path::PathBuf;
+use std::collections::HashMap;
+use std::sync::{LazyLock, Mutex, OnceLock};
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use relm4::prelude::*;
+
 use anime_launcher_sdk::config::ConfigExt;
+use anime_launcher_sdk::sessions::SessionsExt;
+use anime_launcher_sdk::anime_game_core::game::{Game, GameDiff, GameVariant};
+use anime_launcher_sdk::anime_game_core::sophon_tools::region::SophonRegion;
+use anime_launcher_sdk::anime_game_core::sophon_tools::export::tokio::runtime::Handle as TokioHandle;
 use anime_launcher_sdk::zzz::config::{Config, Schema};
 use anime_launcher_sdk::zzz::states::LauncherState;
 use anime_launcher_sdk::zzz::consts::*;
-use anime_launcher_sdk::anime_game_core::prelude::*;
-use anime_launcher_sdk::anime_game_core::zzz::prelude::*;
-use anime_launcher_sdk::sessions::SessionsExt;
 use anime_launcher_sdk::zzz::sessions::Sessions;
+
 use tracing_subscriber::prelude::*;
 use tracing_subscriber::filter::*;
 
@@ -30,6 +54,47 @@ pub const APP_DEBUG: bool = cfg!(debug_assertions);
 /// Sets to `true` when the `App` component is ready (fully initialized)
 pub static READY: AtomicBool = AtomicBool::new(false);
 
+/// Cached game instances keyed by region and installation path.
+///
+/// `LauncherState<'game>` borrows a `&'game Game`, so the values are leaked to
+/// get `&'static Game`. Entries are reused until the configured edition or game
+/// path changes.
+pub static GAMES: LazyLock<Mutex<HashMap<(SophonRegion, PathBuf), &'static Game>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
+
+/// Get or load the game instance for the current config.
+pub async fn get_game_for_config() -> anyhow::Result<&'static Game> {
+    let config = Config::get()?;
+
+    let region = config.launcher.edition;
+    let path = config.game.path
+        .for_edition(&region)
+        .to_path_buf();
+
+    get_or_load_game(region, path).await
+}
+
+/// Get or load a game instance for the given region and path.
+pub async fn get_or_load_game(
+    region: SophonRegion,
+    path: PathBuf
+) -> anyhow::Result<&'static Game> {
+    let key = (region, path);
+
+    if let Some(game) = GAMES.lock().unwrap().get(&key).copied() {
+        return Ok(game);
+    }
+
+    let game = Game::new(GameVariant::ZenlessZoneZero, region, key.1.clone()).await?;
+    let game: &'static Game = Box::leak(Box::new(game));
+
+    Ok(*GAMES.lock().unwrap().entry(key).or_insert(game))
+}
+
+/// Handle to the Tokio runtime created in `main`. Used to run non-`Send`
+/// game download futures on a dedicated thread with `Handle::block_on`.
+pub static TOKIO_HANDLE: OnceLock<TokioHandle> = OnceLock::new();
+
 // TODO: get rid of using this function in all the components' events
 //       e.g. by converting preferences pages into Relm4 Components
 /// Check if the app is ready
@@ -49,111 +114,129 @@ pub fn is_wayland_available() -> bool {
     std::path::Path::new(&runtime_dir).join("wayland-0").exists()
 }
 
-lazy_static::lazy_static! {
-    /// Config loaded on the app's start. Use `Config::get()` to get up to date config instead.
-    /// This one is used to prepare some launcher UI components on start
-    pub static ref CONFIG: Schema = Config::get().expect("Failed to load config");
+/// Config loaded on the app's start. Use `Config::get()` to get up to date
+/// config instead. This one is used to prepare some launcher UI components on
+/// startup.
+pub static CONFIG: LazyLock<Schema> = LazyLock::new(|| {
+    Config::get().expect("Failed to load config")
+});
 
-    pub static ref GAME: Game = Game::new(CONFIG.game.path.for_edition(CONFIG.launcher.edition), CONFIG.launcher.edition);
+pub static STARTUP_LANG: LazyLock<agl_locale::unic_langid::LanguageIdentifier> = LazyLock::new(|| {
+    CONFIG.launcher.language.parse()
+        .unwrap_or_else(|_| agl_locale::SYSTEM_LANG.clone())
+});
 
-    /// Path to launcher folder. Standard is `$HOME/.local/share/anime-game-launcher`
-    pub static ref LAUNCHER_FOLDER: PathBuf = launcher_dir().expect("Failed to get launcher folder");
+/// Localized "loading game info" status page text.
+pub static LOADING_GAME_INFO: LazyLock<String> = LazyLock::new(|| {
+    crate::i18n!("loading-game-info")
+});
 
-    /// Path to launcher's cache folder. Standard is `$HOME/.cache/anime-game-launcher`
-    pub static ref CACHE_FOLDER: PathBuf = cache_dir().expect("Failed to get launcher's cache folder");
+/// Localized fallback "loading launcher state" status page text.
+pub static LOADING_LAUNCHER_STATE: LazyLock<String> = LazyLock::new(|| {
+    crate::i18n!("loading-launcher-state")
+});
 
-    /// Path to `debug.log` file. Standard is `$HOME/.local/share/anime-game-launcher/debug.log`
-    pub static ref DEBUG_FILE: PathBuf = LAUNCHER_FOLDER.join("debug.log");
+/// Path to launcher folder. Standard is `$HOME/.local/share/sleepy-launcher`
+pub static LAUNCHER_FOLDER: LazyLock<PathBuf> = LazyLock::new(|| {
+    launcher_dir().expect("Failed to get launcher folder")
+});
 
-    /// Path to `background` file. Standard is `$HOME/.local/share/anime-game-launcher/background`
-    pub static ref BACKGROUND_FILE: PathBuf = LAUNCHER_FOLDER.join("background");
+/// Path to launcher's cache folder. Standard is `$HOME/.cache/sleepy-launcher`
+pub static CACHE_FOLDER: LazyLock<PathBuf> = LazyLock::new(|| {
+    cache_dir().expect("Failed to get launcher's cache folder")
+});
 
-    /// Path to `background-overlay` file. Standard is `$HOME/.local/share/anime-game-launcher/background-overlay`
-    pub static ref BACKGROUND_OVERLAY_FILE: PathBuf = LAUNCHER_FOLDER.join("background-overlay");
+/// Path to `debug.log` file. Standard is `$HOME/.local/share/sleepy-launcher/debug.log`
+pub static DEBUG_FILE: LazyLock<PathBuf> = LazyLock::new(|| LAUNCHER_FOLDER.join("debug.log"));
 
-    /// Path to the processed `background` file. Standard is `$HOME/.cache/anime-game-launcher/background`
-    pub static ref PROCESSED_BACKGROUND_FILE: PathBuf = CACHE_FOLDER.join("background");
+/// Path to `background` file. Standard is `$HOME/.local/share/sleepy-launcher/background`
+pub static BACKGROUND_FILE: LazyLock<PathBuf> = LazyLock::new(|| LAUNCHER_FOLDER.join("background"));
 
-    /// Path to the processed `background-overlay` file. Standard is `$HOME/.cache/anime-game-launcher/background-overlay`
-    pub static ref PROCESSED_BACKGROUND_OVERLAY_FILE: PathBuf = CACHE_FOLDER.join("background-overlay");
+/// Path to `background-overlat` file. Standard is `$HOME/.local/share/sleepy-launcher/background-overlay`
+pub static BACKGROUND_OVERLAY_FILE: LazyLock<PathBuf> = LazyLock::new(|| LAUNCHER_FOLDER.join("background-overlay"));
 
-    /// Path to the processed `background-video` file. Standard is `$HOME/.cache/anime-game-launcher/background-video`
-    pub static ref BACKGROUND_VIDEO_FILE: PathBuf = CACHE_FOLDER.join("background-video");
+/// Path to the processed `background` file. Standard is `$HOME/.cache/sleepy-launcher/background`
+pub static PROCESSED_BACKGROUND_FILE: LazyLock<PathBuf> = LazyLock::new(|| CACHE_FOLDER.join("background"));
 
-    /// Path to `.keep-background` file. Used to mark launcher that it shouldn't update background picture
-    ///
-    /// Standard is `$HOME/.local/share/anime-game-launcher/.keep-background`
-    pub static ref KEEP_BACKGROUND_FILE: PathBuf = LAUNCHER_FOLDER.join(".keep-background");
+/// Path to the processed `background-overlay` file. Standard is `$HOME/.cache/sleepy-launcher/background-overlay`
+pub static PROCESSED_BACKGROUND_OVERLAY_FILE: LazyLock<PathBuf> = LazyLock::new(|| CACHE_FOLDER.join("background-overlay"));
 
-    /// Path to `.first-run` file. Used to mark launcher that it should run FirstRun window
-    ///
-    /// Standard is `$HOME/.local/share/anime-game-launcher/.first-run`
-    pub static ref FIRST_RUN_FILE: PathBuf = LAUNCHER_FOLDER.join(".first-run");
+/// Path to the processed `background-video` file. Standard is `$HOME/.cache/sleepy-launcher/background-video`
+pub static BACKGROUND_VIDEO_FILE: LazyLock<PathBuf> = LazyLock::new(|| CACHE_FOLDER.join("background-video"));
 
-    /// Global app's css
-    static ref GLOBAL_CSS: String = format!("
-        progressbar > text {{
-            margin-bottom: 6px;
-            font-weight: bold;
-        }}
+/// Path to `.keep-background` file. Used to mark launcher that it shouldn't update background picture
+///
+/// Standard is `$HOME/.local/share/sleepy-launcher/.keep-background`
+pub static KEEP_BACKGROUND_FILE: LazyLock<PathBuf> = LazyLock::new(|| LAUNCHER_FOLDER.join(".keep-background"));
 
-        window.classic-style {{
-            background: url(\"file://{}\"), url(\"file://{}\");
-            background-repeat: no-repeat, no-repeat;
-            background-size: cover, cover;
-        }}
+/// Path to `.first-run` file. Used to mark launcher that it should run FirstRun window
+///
+/// Standard is `$HOME/.local/share/sleepy-launcher/.first-run`
+pub static FIRST_RUN_FILE: LazyLock<PathBuf> = LazyLock::new(|| LAUNCHER_FOLDER.join(".first-run"));
 
-        .background-overlay {{
-            background: url(\"file://{}\");
-            background-repeat: no-repeat;
-            background-size: cover;
-        }}
+/// Global app's css
+pub(crate) static GLOBAL_CSS: LazyLock<String> = LazyLock::new(|| format!("
+    progressbar > text {{
+        margin-bottom: 6px;
+        font-weight: bold;
+    }}
 
-        window.classic-style progressbar {{
-            background-color: rgba(0, 0, 0, 0.65);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 18px;
-            padding: 10px 18px;
-            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
-            color: #ffffff;
-            transition-duration: 0.3s;
-            transition-timing-function: ease;
-        }}
+    window.classic-style {{
+        background: url(\"file://{}\"), url(\"file://{}\");
+        background-repeat: no-repeat, no-repeat;
+        background-size: cover, cover;
+    }}
 
-        window.classic-style progressbar:hover {{
-            background-color: rgba(0, 0, 0, 0.8);
-        }}
+    .background-overlay {{
+        background: url(\"file://{}\");
+        background-repeat: no-repeat;
+        background-size: cover;
+    }}
 
-        window.classic-style progressbar > text {{
-            color: #ffffff;
-            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
-        }}
+    window.classic-style progressbar {{
+        background-color: rgba(0, 0, 0, 0.65);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 18px;
+        padding: 10px 18px;
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
+        color: #ffffff;
+        transition-duration: 0.3s;
+        transition-timing-function: ease;
+    }}
 
-        window.classic-style progressbar > trough {{
-            min-height: 10px;
-            border: none;
-            border-radius: 999px;
-            background-color: rgba(255, 255, 255, 0.22);
-            box-shadow: none;
-        }}
+    window.classic-style progressbar:hover {{
+        background-color: rgba(0, 0, 0, 0.8);
+    }}
 
-        window.classic-style progressbar > trough > progress {{
-            min-height: 10px;
-            margin: 0;
-            border: none;
-            border-radius: 999px;
-            box-shadow: none;
-        }}
+    window.classic-style progressbar > text {{
+        color: #ffffff;
+        text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+    }}
 
-        .round-bin {{
-            border-radius: 24px;
-        }}
-        ",
-        PROCESSED_BACKGROUND_OVERLAY_FILE.to_string_lossy(),
-        PROCESSED_BACKGROUND_FILE.to_string_lossy(),
-        PROCESSED_BACKGROUND_OVERLAY_FILE.to_string_lossy(),
-        );
-}
+    window.classic-style progressbar > trough {{
+        min-height: 10px;
+        border: none;
+        border-radius: 999px;
+        background-color: rgba(255, 255, 255, 0.22);
+        box-shadow: none;
+    }}
+
+    window.classic-style progressbar > trough > progress {{
+        min-height: 10px;
+        margin: 0;
+        border: none;
+        border-radius: 999px;
+        box-shadow: none;
+    }}
+
+    .round-bin {{
+        border-radius: 24px;
+    }}
+    ",
+    PROCESSED_BACKGROUND_OVERLAY_FILE.to_string_lossy(),
+    PROCESSED_BACKGROUND_FILE.to_string_lossy(),
+    PROCESSED_BACKGROUND_OVERLAY_FILE.to_string_lossy()
+ ));
 
 /// Actually document the launcher's command line options
 fn print_help() {
@@ -178,6 +261,9 @@ GTK options are supported as well. Use --help-all to list them.
 }
 
 fn main() -> anyhow::Result<()> {
+    // Load launcher's translations before any of them is used
+    i18n::init();
+
     // Setup custom panic handler
     human_panic::setup_panic!(human_panic::metadata!());
 
@@ -211,7 +297,7 @@ fn main() -> anyhow::Result<()> {
         // CONFIG is initialized lazily so it will contain following changes as well
         let mut config = Config::get().expect("Failed to get config");
 
-        config.launcher.language = i18n::format_lang(i18n::get_default_lang());
+        config.launcher.language = agl_locale::SYSTEM_LANG.to_string();
 
         Config::update_raw(config).expect("Failed to update config");
     }
@@ -265,7 +351,6 @@ fn main() -> anyhow::Result<()> {
 
     // Prepare stdout logger
     let stdout = tracing_subscriber::fmt::layer()
-        .pretty()
         .with_filter({
             if APP_DEBUG || force_debug {
                 LevelFilter::TRACE
@@ -275,17 +360,25 @@ fn main() -> anyhow::Result<()> {
             }
         })
         .with_filter(filter_fn(move |metadata| {
-            !metadata.target().contains("rustls") && !no_verbose_tracing
+            !metadata.target().contains("rustls")
+                && !metadata.target().contains("h2")
+                && !metadata.target().contains("hyper_util")
+                && !metadata.target().contains("reqwest::retry")
+                && !no_verbose_tracing
         }));
 
     // Prepare debug file logger
     let file = std::fs::File::create(DEBUG_FILE.as_path())?;
 
     let debug_log = tracing_subscriber::fmt::layer()
-        .pretty()
         .with_ansi(false)
         .with_writer(std::sync::Arc::new(file))
-        .with_filter(filter_fn(|metadata| !metadata.target().contains("rustls")));
+        .with_filter(filter_fn(|metadata| {
+            !metadata.target().contains("rustls")
+                && !metadata.target().contains("h2")
+                && !metadata.target().contains("hyper_util")
+                && !metadata.target().contains("reqwest::retry")
+        }));
 
     tracing_subscriber::registry()
         .with(stdout)
@@ -311,55 +404,60 @@ fn main() -> anyhow::Result<()> {
     gtk::glib::set_application_name("Sleepy Launcher");
     gtk::glib::set_program_name(Some("Sleepy Launcher"));
 
-    // Set UI language
-    let lang = CONFIG
-        .launcher
-        .language
-        .parse()
-        .expect("Wrong language format used in config");
+    // Create the Tokio runtime used by background downloads.
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .expect("Failed to create Tokio runtime");
 
-    i18n::set_lang(lang).expect("Failed to set launcher language");
-
-    tracing::info!("Set UI language to {}", i18n::get_lang());
+    TOKIO_HANDLE.set(runtime.handle().clone()).ok();
 
     // Run FirstRun window if .first-run file persist
     if FIRST_RUN_FILE.exists() {
         // Create the app
-        let app = RelmApp::new(APP_ID).with_args(gtk_args);
+        let app = RelmApp::new(APP_ID)
+            .with_args(gtk_args);
 
         // Show first run window
-        app.run::<FirstRunApp>(());
+        app.run_async::<FirstRunApp>(());
     }
+
     // Run the app if everything's ready
     else {
         if run_game || just_run_game {
-            let state =
-                LauncherState::get_from_config(|_| {}).expect("Failed to get launcher state");
+            match runtime.block_on(get_game_for_config()) {
+                Ok(game) => match runtime.block_on(
+                    LauncherState::get_from_config(game)
+                ) {
+                    Ok(LauncherState::Launch) => {
+                        anime_launcher_sdk::zzz::game::run()
+                            .expect("Failed to run the game");
 
-            match state {
-                LauncherState::Launch => {
-                    anime_launcher_sdk::zzz::game::run().expect("Failed to run the game");
+                        return Ok(());
+                    }
 
-                    return Ok(());
-                }
+                    Ok(LauncherState::GameDiff(GameDiff::Update { .. })) if just_run_game => {
+                        anime_launcher_sdk::zzz::game::run()
+                            .expect("Failed to run the game");
 
-                LauncherState::PredownloadAvailable {
-                    ..
-                } if just_run_game => {
-                    anime_launcher_sdk::zzz::game::run().expect("Failed to run the game");
+                        return Ok(());
+                    }
 
-                    return Ok(());
-                }
+                    Ok(_) => (),
 
-                _ => ()
+                    Err(err) => tracing::error!("Failed to get launcher state: {err}")
+                },
+
+                Err(err) => tracing::error!("Failed to load game info: {err}")
             }
         }
 
         // Create the app
-        let app = RelmApp::new(APP_ID).with_args(gtk_args);
+        let app = RelmApp::new(APP_ID)
+            .with_args(gtk_args);
 
         // Show main window
-        app.run::<App>(());
+        app.run_async::<App>(());
     }
 
     Ok(())

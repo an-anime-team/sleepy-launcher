@@ -1,39 +1,86 @@
 {
     inputs = {
-        nixpkgs.url = "github:nixos/nixpkgs/nixos-24.05";
-        nixpkgs-unstable.url = "github:nixos/nixpkgs/nixos-unstable";
+        nixpkgs.url = "github:nixos/nixpkgs/nixpkgs-unstable";
+        flake-utils.url = "github:numtide/flake-utils";
+
+        rust-overlay = {
+            url = "github:oxalica/rust-overlay";
+            inputs.nixpkgs.follows = "nixpkgs";
+        };
     };
 
-    outputs = { self, nixpkgs, nixpkgs-unstable }:
-        let
-            pkgs = nixpkgs.legacyPackages.x86_64-linux;
-            pkgs-unstable = nixpkgs-unstable.legacyPackages.x86_64-linux;
+    outputs = { self, nixpkgs, flake-utils, rust-overlay }:
+        flake-utils.lib.eachDefaultSystem (system:
+            let
+                pkgs = import nixpkgs {
+                    inherit system;
 
-        in {
-            devShells.x86_64-linux.default = pkgs.mkShell {
-                nativeBuildInputs = with pkgs; [
-                    pkgs-unstable.rustup
-                    pkgs-unstable.rustfmt
-                    pkgs-unstable.clippy
+                    overlays = [ rust-overlay.overlays.default ];
+                };
 
-                    gcc
-                    cmake
-                    pkg-config
+                config = pkgs.lib.importTOML ./Cargo.toml;
 
-                    git
-                    unzip
-                    p7zip
-                    libwebp
-                ];
+            in {
+                packages.default = pkgs.rustPlatform.buildRustPackage {
+                    pname = config.package.name;
+                    version = config.package.version;
 
-                buildInputs = with pkgs; [
-                    gtk4
-                    glib
-                    gdk-pixbuf
-                    gobject-introspection
+                    src = ./.;
+                    cargoLock.lockFile = ./Cargo.lock;
 
-                    libadwaita
-                ];
-            };
-        };
+                    doCheck = false;
+
+                    meta = with pkgs.lib; {
+                        description = config.package.description;
+                        homepage = config.package.homepage;
+                        license = licenses.gpl3Only;
+
+                        maintainers = [
+                            {
+                                name = "Nikita Podvirnyi";
+                                email = "krypt0nn@dawn.wine";
+                                github = "krypt0nn";
+                                githubId = 29639507;
+                            }
+                            {
+                                name = "@JohnTheCoolingFan";
+                                email = "ivan8215145640@gmail.com";
+                                github = "JohnTheCoolingFan";
+                                githubId = 43478602;
+                            }
+                        ];
+                    };
+
+                    nativeBuildInputs = with pkgs; [
+                        rust-bin.stable.latest.minimal
+                        gcc
+                    ];
+                };
+
+                devShells.default = pkgs.mkShell {
+                    nativeBuildInputs = with pkgs; [
+                        (rust-bin.stable.latest.default.override {
+                            extensions = [ "rust-src" ];
+                        })
+
+                        gcc
+                        cmake
+                        pkg-config
+
+                        git
+                        unzip
+                        p7zip
+                        libwebp
+                    ];
+
+                    buildInputs = with pkgs; [
+                        gtk4
+                        glib
+                        gdk-pixbuf
+                        gobject-introspection
+                        libadwaita
+                        protobuf
+                    ];
+                };
+            });
 }

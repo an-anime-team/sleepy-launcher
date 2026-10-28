@@ -1,10 +1,47 @@
-use relm4::prelude::*;
+// SPDX-License-Identifier: GPL-3.0-or-later
+//
+// sleepy-launcher
+// Copyright (C) 2021 - 2026  Nikita Podvirnyi <krypt0nn@dawn.wine>
+// Copyright (C) 2025 - 2026  @JohnTheCoolingFan <ivan8215145640@gmail.com>
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 use adw::prelude::*;
 
-use anime_launcher_sdk::anime_game_core::prelude::*;
-use anime_launcher_sdk::anime_game_core::zzz::prelude::*;
-
 use crate::*;
+
+/// Format bytes into a human-readable string.
+///
+/// TODO: this used to be provided by `anime_game_core::prelude`.
+#[inline]
+pub fn prettify_bytes(bytes: u64) -> String {
+    if bytes > 1024 * 1024 * 1024 {
+        format!("{:.2} GB", bytes as f64 / 1024.0 / 1024.0 / 1024.0)
+    }
+
+    else if bytes > 1024 * 1024 {
+        format!("{:.2} MB", bytes as f64 / 1024.0 / 1024.0)
+    }
+
+    else if bytes > 1024 {
+        format!("{:.2} KB", bytes as f64 / 1024.0)
+    }
+
+    else {
+        format!("{:.2} B", bytes)
+    }
+}
 
 pub struct ProgressBarInit {
     pub caption: Option<String>,
@@ -44,11 +81,12 @@ pub enum ProgressBarMsg {
     /// (current bytes, total bytes) 
     UpdateProgress(u64, u64),
 
-    UpdateFromState(DiffUpdate),
+    // TODO: re-enable once the SDK provides installer/diff progress updates.
+    // UpdateFromState(DiffUpdate),
     SetVisible(bool)
 }
 
-#[relm4::component(async, pub)]
+#[relm4::component(pub, async)]
 impl SimpleAsyncComponent for ProgressBar {
     type Init = ProgressBarInit;
     type Input = ProgressBarMsg;
@@ -75,10 +113,8 @@ impl SimpleAsyncComponent for ProgressBar {
                         caption = format!("{caption}: {:.2}%", model.fraction * 100.0);
                     }
 
-                    if model.display_fraction {
-                        if let Some((curr, total)) = &model.downloaded {
-                            caption = format!("{caption} ({curr} of {total})");
-                        }
+                    if model.display_fraction && let Some((curr, total)) = &model.downloaded {
+                        caption = format!("{caption} ({curr} of {total})");
                     }
 
                     caption
@@ -120,7 +156,9 @@ impl SimpleAsyncComponent for ProgressBar {
             ProgressBarMsg::DisplayFraction(value) => self.display_fraction = value,
 
             ProgressBarMsg::UpdateProgress(curr, total) => {
-                self.fraction = curr as f64 / total as f64;
+                if total > 0 {
+                    self.fraction = curr as f64 / total as f64;
+                }
 
                 self.downloaded = Some((
                     prettify_bytes(curr),
@@ -128,51 +166,19 @@ impl SimpleAsyncComponent for ProgressBar {
                 ));
             }
 
-            ProgressBarMsg::UpdateFromState(state) => {
-                match state {
-                    DiffUpdate::CheckingFreeSpace(_) |
-                    DiffUpdate::InstallerUpdate(InstallerUpdate::CheckingFreeSpace(_)) => self.caption = Some(tr!("checking-free-space")),
-
-                    DiffUpdate::InstallerUpdate(InstallerUpdate::DownloadingStarted(_))         => self.caption = Some(tr!("downloading")),
-                    DiffUpdate::InstallerUpdate(InstallerUpdate::UpdatingPermissionsStarted(_)) => self.caption = Some(tr!("updating-permissions")),
-                    DiffUpdate::InstallerUpdate(InstallerUpdate::UnpackingStarted(_))           => self.caption = Some(tr!("unpacking")),
-
-                    DiffUpdate::ApplyingHdiffStarted => {
-                        self.caption = Some(tr!("applying-hdiff"));
-
-                        self.display_fraction = false;
-                    },
-
-                    DiffUpdate::RemovingOutdatedStarted => {
-                        self.caption = Some(tr!("removing-outdated"));
-
-                        self.display_fraction = false;
-                    },
-
-                    DiffUpdate::InstallerUpdate(InstallerUpdate::DownloadingProgress(curr, total)) |
-                    DiffUpdate::InstallerUpdate(InstallerUpdate::UpdatingPermissions(curr, total)) |
-                    DiffUpdate::InstallerUpdate(InstallerUpdate::UnpackingProgress(curr, total)) |
-                    DiffUpdate::ApplyingHdiffProgress(curr, total) |
-                    DiffUpdate::RemovingOutdatedProgress(curr, total) => {
-                        self.fraction = curr as f64 / total as f64;
-
-                        self.downloaded = Some((
-                            prettify_bytes(curr),
-                            prettify_bytes(total)
-                        ));
-                    }
-
-                    DiffUpdate::InstallerUpdate(InstallerUpdate::DownloadingFinished)         => tracing::info!("Downloading finished"),
-                    DiffUpdate::InstallerUpdate(InstallerUpdate::UpdatingPermissionsFinished) => tracing::info!("Updating permissions finished"),
-                    DiffUpdate::InstallerUpdate(InstallerUpdate::UnpackingFinished)           => tracing::info!("Unpacking finished"),
-
-                    DiffUpdate::ApplyingHdiffFinished    => tracing::info!("Applying hdiffs finished"),
-                    DiffUpdate::RemovingOutdatedFinished => tracing::info!("Removing outdated files finished"),
-
-                    DiffUpdate::InstallerUpdate(InstallerUpdate::DownloadingError(err)) => tracing::error!("Downloading error: {:?}", err),
-                    DiffUpdate::InstallerUpdate(InstallerUpdate::UnpackingError(err)) => tracing::error!("Unpacking error: {:?}", err)
-                }
-            }
+            // TODO: re-enable once the SDK provides installer/diff progress updates.
+            // ProgressBarMsg::UpdateFromState(state) => {
+            //     match state {
+            //         DiffUpdate::CheckingFreeSpace(_) |
+            //         DiffUpdate::InstallerUpdate(InstallerUpdate::CheckingFreeSpace(_)) => self.caption = Some(i18n!("checking-free-space")),
+            //
+            //         DiffUpdate::InstallerUpdate(InstallerUpdate::DownloadingStarted(_))         => self.caption = Some(i18n!("downloading")),
+            //         DiffUpdate::InstallerUpdate(InstallerUpdate::UpdatingPermissionsStarted(_)) => self.caption = Some(i18n!("updating-permissions")),
+            //         DiffUpdate::InstallerUpdate(InstallerUpdate::UnpackingStarted(_))           => self.caption = Some(i18n!("unpacking")),
+            //
+            //         ...
+            //     }
+            // }
 
             ProgressBarMsg::SetVisible(visible) => self.visible = visible
         }

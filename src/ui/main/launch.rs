@@ -1,4 +1,22 @@
-use relm4::prelude::*;
+// SPDX-License-Identifier: GPL-3.0-or-later
+//
+// sleepy-launcher
+// Copyright (C) 2021 - 2026  Nikita Podvirnyi <krypt0nn@dawn.wine>
+// Copyright (C) 2025 - 2026  @JohnTheCoolingFan <ivan8215145640@gmail.com>
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 use gtk::prelude::*;
 
 use anime_launcher_sdk::zzz::config::schema::prelude::LauncherBehavior;
@@ -7,8 +25,19 @@ use crate::*;
 
 use super::{App, AppMsg};
 
-pub fn launch(sender: ComponentSender<App>) {
-    let config = Config::get().unwrap();
+pub fn launch(sender: AsyncComponentSender<App>) {
+    let config = match Config::get() {
+        Ok(config) => config,
+
+        Err(err) => {
+            sender.input(AppMsg::Toast {
+                title: i18n!("config-file-opening-error"),
+                description: Some(err.to_string())
+            });
+
+            return;
+        }
+    };
 
     match config.launcher.behavior {
         // Disable launch button and show kill game button if behavior set to "Nothing" to prevent sussy actions
@@ -28,7 +57,7 @@ pub fn launch(sender: ComponentSender<App>) {
                 tracing::error!("Failed to launch game: {err}");
 
                 sender.input(AppMsg::Toast {
-                    title: tr!("game-launching-failed"),
+                    title: i18n!("game-launching-failed"),
                     description: Some(err.to_string())
                 });
 
