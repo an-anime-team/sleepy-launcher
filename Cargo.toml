@@ -23,7 +23,7 @@ glib-build-tools = "0.22.8"
 
 [dependencies.anime-launcher-sdk]
 git = "https://github.com/an-anime-team/anime-launcher-sdk"
-tag = "1.37.0"
+tag = "1.37.0-sophon-tools-gh-mirror"
 features = ["all", "zzz"]
 
 # path = "../anime-launcher-sdk" # ! for dev purposes only
