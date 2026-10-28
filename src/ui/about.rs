@@ -105,16 +105,10 @@ impl SimpleComponent for AboutDialog {
 
             set_release_notes_version: &APP_VERSION_STRING,
             set_release_notes: r#"
-                <p>Fixed</p>
-
-                <ul>
-                    <li>Fixed %temp% and %game% command keywords being mixed up</li>
-                </ul>
-
                 <p>Changed</p>
 
                 <ul>
-                    <li>Launcher will now only prompt to install DX12 dependencies when DX12 is enabled</li>
+                    <li>Migrated to sophon-tools</li>
                 </ul>
             "#
         }
