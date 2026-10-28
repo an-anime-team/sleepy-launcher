@@ -27,7 +27,8 @@ use crate::*;
 pub static APP_VERSION_STRING: LazyLock<String> = LazyLock::new(|| {
     if crate::APP_DEBUG && !crate::APP_VERSION.contains('-') {
         format!("{}-dev", crate::APP_VERSION)
-    } else {
+    }
+    else {
         crate::APP_VERSION.to_string()
     }
 });
@@ -105,10 +106,16 @@ impl SimpleComponent for AboutDialog {
 
             set_release_notes_version: &APP_VERSION_STRING,
             set_release_notes: r#"
+                <p>Fixed</p>
+
+                <ul>
+                    <li>Fixed "Permission denied" error when updating the game</li>
+                </ul>
+
                 <p>Changed</p>
 
                 <ul>
-                    <li>Migrated to sophon-tools</li>
+                    <li>Downgraded sophon-tools to an earlier version to address updating issues</li>
                 </ul>
             "#
         }
