@@ -49,6 +49,19 @@
   </categories>
   <content_rating type="oars-1.1" />
   <releases>
+    <release version="1.9.0" date="2026-10-29">
+      <description>
+        <p>Fixed "Permission denied" error when updating the game</p>
+        <p>Downgraded sophon-tools to an earlier version to address updating issues</p>
+      </description>
+    </release>
+    <release version="1.8.0" date="2026-10-28">
+      <description>
+        <p>Fixed app icon rendering during loading</p>
+        <p>Migrated to sophon-tools.</p>
+        <p>Updated dependencies</p>
+      </description>
+    </release>
     <release version="1.7.1" date="2026-09-11">
       <description>
         <p>Fixed %temp% and %game% command keywords being mixed up</p>
