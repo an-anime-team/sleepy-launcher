@@ -1,58 +1,84 @@
-use relm4::{
-    prelude::*,
-    Sender
-};
+// SPDX-License-Identifier: GPL-3.0-or-later
+//
+// sleepy-launcher
+// Copyright (C) 2021 - 2026  Nikita Podvirnyi <krypt0nn@dawn.wine>
+// Copyright (C) 2025 - 2026  @JohnTheCoolingFan <ivan8215145640@gmail.com>
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+use relm4::Sender;
 use gtk::glib::clone;
 
 use crate::*;
 use crate::ui::components::*;
-
 use super::{App, AppMsg};
 
-pub fn download_diff(sender: ComponentSender<App>, progress_bar_input: Sender<ProgressBarMsg>, mut diff: VersionDiff) {
+pub fn download_diff(
+    sender: ComponentSender<App>,
+    progress_bar_input: Sender<ProgressBarMsg>,
+    mut diff: VersionDiff
+) {
     sender.input(AppMsg::SetDownloading(true));
 
     std::thread::spawn(move || {
         let config = Config::get().unwrap();
-        let game_path = config.game.path.for_edition(config.launcher.edition).to_path_buf();
+        let game_path = config
+            .game
+            .path
+            .for_edition(&config.launcher.edition)
+            .to_path_buf();
 
         if let Some(temp) = config.launcher.temp {
             diff = diff.with_temp_folder(temp);
         }
 
-        let result = diff.install_to(game_path, 1, clone!(
-            #[strong]
-            sender,
+        let result = diff.install_to(
+            game_path,
+            1,
+            clone!(
+                #[strong]
+                sender,
+                move |state| {
+                    match &state {
+                        DiffUpdate::InstallerUpdate(InstallerUpdate::DownloadingError(err)) => {
+                            tracing::error!("Downloading failed: {err}");
 
-            move |state| {
-                match &state {
-                    DiffUpdate::InstallerUpdate(InstallerUpdate::DownloadingError(err)) => {
-                        tracing::error!("Downloading failed: {err}");
+                            sender.input(AppMsg::Toast {
+                                title: i18n!("downloading-failed"),
+                                description: Some(err.to_string())
+                            });
+                        }
 
-                        sender.input(AppMsg::Toast {
-                            title: tr!("downloading-failed"),
-                            description: Some(err.to_string())
-                        });
+                        DiffUpdate::InstallerUpdate(InstallerUpdate::UnpackingError(err)) => {
+                            tracing::error!("Unpacking failed: {err}");
+
+                            sender.input(AppMsg::Toast {
+                                title: i18n!("unpacking-failed"),
+                                description: Some(err.clone())
+                            });
+                        }
+
+                        _ => ()
                     }
 
-                    DiffUpdate::InstallerUpdate(InstallerUpdate::UnpackingError(err)) => {
-                        tracing::error!("Unpacking failed: {err}");
-
-                        sender.input(AppMsg::Toast {
-                            title: tr!("unpacking-failed"),
-                            description: Some(err.clone())
-                        });
+                    #[allow(unused_must_use)]
+                    {
+                        progress_bar_input.send(ProgressBarMsg::UpdateFromState(state));
                     }
-
-                    _ => ()
                 }
-
-                #[allow(unused_must_use)] {
-                    progress_bar_input.send(ProgressBarMsg::UpdateFromState(state));
-                }
-            }
-        ));
+            )
+        );
 
         let mut perform_on_download_needed = true;
 
@@ -60,7 +86,7 @@ pub fn download_diff(sender: ComponentSender<App>, progress_bar_input: Sender<Pr
             tracing::error!("Downloading failed: {err}");
 
             sender.input(AppMsg::Toast {
-                title: tr!("downloading-failed"),
+                title: i18n!("downloading-failed"),
                 description: Some(err.to_string())
             });
 

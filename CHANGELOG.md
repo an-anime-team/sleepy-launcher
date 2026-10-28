@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.0] - 2026-10-29
+
+### Fixed
+
+- Fixed "Permission denied" error when updating the game
+
+### Changed
+
+- Downgraded sophon-tools to an earlier version to address updating issues
+
+## [1.8.0] - 2026-10-28
+
+### Fixed
+
+- Fixed app icon rendering during loading
+
+### Changed
+
+- Migrated to sophon-tools.
+- Updated dependencies
+
 ## [1.7.1] - 2026-09-11
 
 ### Fixed
@@ -195,7 +216,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 <br>
 
-[unreleased]: https://github.com/an-anime-team/sleepy-launcher/compare/1.7.1...next
+[unreleased]: https://github.com/an-anime-team/sleepy-launcher/compare/1.9.0...next
+[1.9.0]: https://github.com/an-anime-team/sleepy-launcher/compare/1.8.0...1.9.0
+[1.8.0]: https://github.com/an-anime-team/sleepy-launcher/compare/1.7.1...1.8.0
 [1.7.1]: https://github.com/an-anime-team/sleepy-launcher/compare/1.7.0...1.7.1
 [1.7.0]: https://github.com/an-anime-team/sleepy-launcher/compare/1.6.6...1.7.0
 [1.6.6]: https://github.com/an-anime-team/sleepy-launcher/compare/1.6.5...1.6.6
