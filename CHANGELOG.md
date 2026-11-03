@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixed "Game directory is not empty" error when trying to resume a download
+
 ## [1.9.0] - 2026-10-29
 
 ### Fixed
