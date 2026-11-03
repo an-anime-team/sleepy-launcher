@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixed the launcher being unable to create the game directory
+
+### Added
+
+- Added config setting to adjust the amount of threads used by the downloader/updater
+
 ## [1.9.1] - 2026-11-03
 
 ### Fixed
