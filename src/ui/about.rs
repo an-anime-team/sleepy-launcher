@@ -109,13 +109,7 @@ impl SimpleComponent for AboutDialog {
                 <p>Fixed</p>
 
                 <ul>
-                    <li>Fixed "Permission denied" error when updating the game</li>
-                </ul>
-
-                <p>Changed</p>
-
-                <ul>
-                    <li>Downgraded sophon-tools to an earlier version to address updating issues</li>
+                    <li>Fixed "Game directory is not empty" error when trying to resume a download</li>
                 </ul>
             "#
         }
