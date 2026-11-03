@@ -23,7 +23,7 @@ glib-build-tools = "0.22.8"
 
 [dependencies.anime-launcher-sdk]
 git = "https://github.com/an-anime-team/anime-launcher-sdk"
-tag = "1.38.1"
+tag = "1.38.2"
 features = ["all", "zzz"]
 
 # path = "../anime-launcher-sdk" # ! for dev purposes only
