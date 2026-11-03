@@ -49,6 +49,12 @@
   </categories>
   <content_rating type="oars-1.1" />
   <releases>
+    <release version="1.9.2" date="2026-11-03">
+      <description>
+        <p>Fixed the launcher being unable to create the game directory</p>
+        <p>Added config setting to adjust the amount of threads used by the downloader/updater</p>
+      </description>
+    </release>
     <release version="1.9.1" date="2026-11-03">
       <description>
         <p>Fixed "Game directory is not empty" error when trying to resume a download</p>
