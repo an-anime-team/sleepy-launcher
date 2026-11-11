@@ -1,24 +1,11 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
-//
-// sleepy-launcher
-// Copyright (C) 2021 - 2026  Nikita Podvirnyi <krypt0nn@dawn.wine>
-// Copyright (C) 2025 - 2026  @JohnTheCoolingFan <ivan8215145640@gmail.com>
-//
-// This program is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// This program is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-//
-// You should have received a copy of the GNU General Public License
-// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+use std::sync::atomic::AtomicU64;
 
+use anime_launcher_sdk::anime_game_core::sophon::api::{ApiContext, ApiContextWrapper};
+use anime_launcher_sdk::anime_game_core::sophon::api::schemas::sophon_manifests::SophonDownloadInfo;
 use relm4::Sender;
-use gtk::glib::clone;
+use anime_launcher_sdk::anime_game_core::sophon::installer::{
+    SophonInstaller, Update as SophonRepairerUpdate
+};
 
 use crate::*;
 use crate::ui::components::*;
@@ -26,7 +13,7 @@ use super::{App, AppMsg};
 
 #[allow(unused_must_use)]
 pub fn repair_game(sender: ComponentSender<App>, progress_bar_input: Sender<ProgressBarMsg>) {
-    let config = Config::get().unwrap();
+    let config = Config::get().expect("failed to read launcher config");
 
     progress_bar_input.send(ProgressBarMsg::UpdateCaption(Some(i18n!(
         "verifying-files"
@@ -34,129 +21,123 @@ pub fn repair_game(sender: ComponentSender<App>, progress_bar_input: Sender<Prog
     sender.input(AppMsg::SetDownloading(true));
 
     std::thread::spawn(move || {
-        match repairer::try_get_integrity_files(config.launcher.edition, None) {
-            Ok(files) => {
-                let game_path = config
-                    .game
-                    .path
-                    .for_edition(&config.launcher.edition)
-                    .to_path_buf();
+        let api = ApiContext::new(config.launcher.edition.into());
 
-                progress_bar_input.send(ProgressBarMsg::UpdateProgress(0, 0));
-
-                let mut total = 0;
-
-                for file in &files {
-                    total += file.size;
-                }
-
-                let median_size = total / config.launcher.repairer.threads;
-                let mut i = 0;
-
-                let (verify_sender, verify_receiver) = std::sync::mpsc::channel();
-
-                for _ in 0..config.launcher.repairer.threads {
-                    let mut thread_files = Vec::new();
-                    let mut thread_files_size = 0;
-
-                    while i < files.len() {
-                        thread_files.push(files[i].clone());
-
-                        thread_files_size += files[i].size;
-                        i += 1;
-
-                        if thread_files_size >= median_size {
-                            break;
-                        }
-                    }
-
-                    let thread_sender = verify_sender.clone();
-
-                    std::thread::spawn(clone!(
-                        #[strong]
-                        game_path,
-                        move || {
-                            for file in thread_files {
-                                let status = if config.launcher.repairer.fast {
-                                    file.fast_verify(&game_path)
-                                }
-                                else {
-                                    file.verify(&game_path)
-                                };
-
-                                thread_sender.send((file, status)).unwrap();
-                            }
-                        }
-                    ));
-                }
-
-                // We have [config.launcher.repairer.threads] copies of this
-                // sender + the original one receiver will
-                // return Err when all the senders will be dropped.
-                // [config.launcher.repairer.threads] senders will be dropped
-                // when threads will finish verifying files
-                // but this one will live as long as current thread exists so we
-                // should drop it manually
-                drop(verify_sender);
-
-                let mut broken = Vec::new();
-                let mut processed = 0;
-
-                while let Ok((file, status)) = verify_receiver.recv() {
-                    processed += file.size;
-
-                    if !status {
-                        broken.push(file);
-                    }
-
-                    progress_bar_input.send(ProgressBarMsg::UpdateProgress(processed, total));
-                }
-
-                if !broken.is_empty() {
-                    let total = broken.len() as u64;
-
-                    progress_bar_input.send(ProgressBarMsg::UpdateCaption(Some(i18n!(
-                        "repairing-files"
-                    ))));
-                    progress_bar_input.send(ProgressBarMsg::DisplayFraction(false));
-                    progress_bar_input.send(ProgressBarMsg::UpdateProgress(0, total));
-
-                    tracing::warn!(
-                        "Found broken files:\n{}",
-                        broken.iter().fold(String::new(), |acc, file| acc
-                            + &format!("- {}\n", file.path.to_string_lossy()))
-                    );
-
-                    for (i, file) in broken.into_iter().enumerate() {
-                        tracing::debug!("Repairing file: {}", file.path.to_string_lossy());
-
-                        if let Err(err) = file.repair(&game_path) {
-                            sender.input(AppMsg::Toast {
-                                title: i18n!("game-file-repairing-error"),
-                                description: Some(err.to_string())
-                            });
-
-                            tracing::error!("Failed to repair game file: {err}");
-                        }
-
-                        progress_bar_input
-                            .send(ProgressBarMsg::UpdateProgress(i as u64 + 1, total));
-                    }
-
-                    progress_bar_input.send(ProgressBarMsg::DisplayFraction(true));
-                }
-            }
-
+        let manifest = match get_download_manifest(&api, config.launcher.edition) {
+            Ok(manifest) => manifest,
             Err(err) => {
-                tracing::error!("Failed to get inregrity failes: {err}");
-
+                tracing::error!("Faield to get download info: {err}");
                 sender.input(AppMsg::Toast {
-                    title: i18n!("integrity-files-getting-error"),
+                    title: "Repair error".to_owned(),
                     description: Some(err.to_string())
                 });
+                return;
             }
-        }
+        };
+
+        let game_path = config.game.path.for_edition(&config.launcher.edition);
+
+        let repairer_temp = config.launcher.temp.unwrap_or_else(std::env::temp_dir);
+        let mut repairer = match SophonInstaller::new(manifest.as_ref(), &repairer_temp) {
+            Ok(r) => r,
+            Err(e) => {
+                tracing::error!("Error initializing repairer: {e:?}");
+                sender.input(AppMsg::Toast {
+                    title: "Repair error".to_owned(),
+                    description: Some(e.to_string())
+                });
+                return;
+            }
+        };
+        repairer.mode_repair = true;
+        repairer.inplace = true;
+        repairer.chunks_in_mem = true;
+        repairer.chunks_queue_data_limit = Some(2 * 1024 * 1024 * 1024); // 2GiB
+
+        let total_files_to_repair = AtomicU64::new(0);
+        let total_to_repair = &total_files_to_repair;
+
+        let updater = |msg: SophonRepairerUpdate| match msg {
+            SophonRepairerUpdate::CheckingFilesProgress {
+                total,
+                passed
+            } => {
+                tracing::trace!(passed, total, "Verification progress");
+
+                progress_bar_input.send(ProgressBarMsg::UpdateProgressCounter(passed, total));
+            }
+
+            SophonRepairerUpdate::DownloadingProgressFiles {
+                downloaded_files, ..
+            } => {
+                tracing::trace!(
+                    downloaded_files,
+                    total_to_repair = total_to_repair.load(Ordering::Acquire),
+                    "Repairing progress"
+                );
+
+                progress_bar_input.send(ProgressBarMsg::UpdateProgressCounter(
+                    downloaded_files,
+                    total_to_repair.load(Ordering::Acquire)
+                ));
+            }
+
+            SophonRepairerUpdate::CheckingFiles {
+                ..
+            } => {
+                tracing::trace!("Verification started");
+            }
+
+            SophonRepairerUpdate::DownloadingStarted {
+                total_files, ..
+            } => {
+                tracing::trace!("Repairing started");
+
+                total_to_repair.store(total_files, Ordering::Release);
+
+                progress_bar_input.send(ProgressBarMsg::UpdateCaption(Some(i18n!(
+                    "repairing-files"
+                ))));
+            }
+
+            SophonRepairerUpdate::DownloadingFinished => {
+                tracing::trace!("Repair finished");
+            }
+
+            SophonRepairerUpdate::DownloadingError(err) => {
+                tracing::error!(?err, "Error during repairing")
+            }
+
+            _ => {}
+        };
+
+        repairer.install(
+            game_path,
+            config.launcher.repairer.threads as usize,
+            Box::new(updater)
+        );
+
+        let _ = std::fs::remove_dir_all(repairer.downloading_temp());
 
         sender.input(AppMsg::SetDownloading(false));
     });
+}
+
+fn get_download_manifest<'ctx>(
+    api: &'ctx ApiContext,
+    edition: GameEdition
+) -> anyhow::Result<ApiContextWrapper<'ctx, SophonDownloadInfo>> {
+    let downloads = api
+        .game_branches()?
+        .as_ref()
+        .package_latest(edition.api_game_id(), false)
+        .ok_or_else(|| anyhow::anyhow!("Failed to find latest game package"))?
+        .downloads()?;
+
+    let game_download_info = downloads
+        .as_ref()
+        .for_component("game")
+        .ok_or_else(|| anyhow::anyhow!("Failed to find download info for the game"))?;
+
+    Ok(game_download_info.cloned())
 }
