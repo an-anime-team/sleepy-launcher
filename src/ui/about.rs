@@ -109,13 +109,7 @@ impl SimpleComponent for AboutDialog {
                 <p>Fixed</p>
 
                 <ul>
-                    <li>Fixed the launcher being unable to create the game directory</li>
-                </ul>
-
-                <p>Added</p>
-
-                <ul>
-                    <li>Added config setting to adjust the amount of threads used by the downloader/updater</li>
+                    <li>Fixed game repair</li>
                 </ul>
             "#
         }
