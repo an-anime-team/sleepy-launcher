@@ -49,6 +49,11 @@
   </categories>
   <content_rating type="oars-1.1" />
   <releases>
+    <release version="1.9.3" date="2026-11-11">
+      <description>
+        <p>Fixed game repair</p>
+      </description>
+    </release>
     <release version="1.9.2" date="2026-11-03">
       <description>
         <p>Fixed the launcher being unable to create the game directory</p>
